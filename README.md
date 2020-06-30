@@ -13,7 +13,7 @@ We use a single project example throughout the workshop to explain the entire ma
 
 Each workshop module consists of an R Notobook (.Rmd file) so that users can run and experiment with the code examples using their RStudio installation. Workshop attendess should process the workshop modules in the given order. Each subsequent module re-uses pieces from the previous modules. 
 
-1. [Part 01: Configuring RStudio](/01 - Configuring RStudio/01-Configuring_RStudio.Rmd): Explains how to configure your RStudio environment as a “remote control” to connect to SageMaker.
+1. [Part 01: Configuring RStudio](/01_Configuring_RStudio/01-Configuring_RStudio.Rmd): Explains how to configure your RStudio environment as a “remote control” to connect to SageMaker.
 
 2. [Part 02: Training a model with a built-in algorithm](/02 - Model training/02-Model_training_with_a_built-in_algorithm.Rmd): You start by loading and pre-processing the project example data in RStudio locally before you upload the pre-processed data to S3. Then you launch a single SageMaker training job to train a model using the SageMaker XGBoost built-in algorithm. You use R built-in tools to evaluate the training results and use a SageMaker batch inference job on the test set for the final model evaluation. The module highlights all key objects involved (Estimator, Transformer) and describes how the infrastructure behind the built-in algorithms for training and batch inference jobs works. 
 
