@@ -42,7 +42,7 @@ Each workshop module consists of an R Notobook (.Rmd file) so that users can run
 
 * Git clone this repo on your machine: `git clone https://github.com/alex23lemm/AWS-SageMaker-Fundamentals-R-Workshop.git`.
 
-* Click on ``aws-sagemaker-r-fundamentas-workshop.Rproj` and open the project in RStudio.
+* Click on `aws-sagemaker-r-fundamentas-workshop.Rproj` and open the project in RStudio.
 
 * Open the first R notebook contained in the `01 - Configuring RStudio` folder and follow along.
 
