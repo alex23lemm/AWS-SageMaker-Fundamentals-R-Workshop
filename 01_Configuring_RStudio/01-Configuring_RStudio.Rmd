@@ -207,7 +207,7 @@ role_arn
 
 Now that we have the new role's ARN, we will save it as an R environment variable under `.Renivron `. You can easily edit `.Renviron` using `usethis::edit_r_environ()`. Please add the following environment variable to the file and paste the ARN from your clipboard:
 
-``` r
+```
 SAGEMAKER_ROLE_ARN = [YOUR_SAGEMAKER_ROLE_ARN]
 ```
 
