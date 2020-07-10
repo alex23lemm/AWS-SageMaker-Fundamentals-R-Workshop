@@ -345,11 +345,11 @@ This time we won't be able to create the Transformer object by calling `transfor
 For this we need to create a SageMaker model first based on the SageMaker training job by calling `create_from_job()` on the session object. If no model name is specified, the model automatically gets the name of the training job.
 
 ```{r}
-predictions_path = paste0(models_path, "/", best_tuned_model, "/predictions")
+predictions_path <- paste0(models_path, "/", best_tuned_model, "/predictions")
 
 session$create_model_from_job(best_tuned_model)
 
-xgb_batch_predictor = sagemaker$transformer$Transformer(
+xgb_batch_predictor <- sagemaker$transformer$Transformer(
   model_name = best_tuned_model,
   instance_count = 1L, 
   instance_type = "ml.m5.4xlarge", 
