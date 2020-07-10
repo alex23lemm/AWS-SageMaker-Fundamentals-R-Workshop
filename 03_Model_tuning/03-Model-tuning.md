@@ -29,14 +29,16 @@ Load necessary libraries
 To use code in this module, you will need to load the following
 packages:
 
-    library(reticulate)    # for calling the SageMaker Python SDK from R
-    library(purrr)         # for parsing the SageMaker responses
-    library(dplyr)         # for processing the SageMaker responses
-    library(ggplot2)       # for visualizing the tuning job results
-    library(viridis)       # provides color palettes that are easy to read by those with colorblindness
-    library(readr)         # for reading the test set from disk 
-    library(pROC)          # for the evaluation of the final model performance
-    library(caret)         # for the evaluation of the final model performance
+``` r
+library(reticulate)    # for calling the SageMaker Python SDK from R
+library(purrr)         # for parsing the SageMaker responses
+library(dplyr)         # for processing the SageMaker responses
+library(ggplot2)       # for visualizing the tuning job results
+library(viridis)       # provides color palettes that are easy to read by those with colorblindness
+library(readr)         # for reading the test set from disk 
+library(pROC)          # for the evaluation of the final model performance
+library(caret)         # for the evaluation of the final model performance
+```
 
 Preparation
 -----------
@@ -50,10 +52,12 @@ provides convenient methods for manipulating entities and resources that
 Amazon SageMaker uses, such as training jobs, endpoints, and input data
 sets in S3.
 
-    use_condaenv("sagemaker-r", required = TRUE)
+``` r
+use_condaenv("sagemaker-r", required = TRUE)
 
-    sagemaker <- import("sagemaker")
-    session <- sagemaker$Session()
+sagemaker <- import("sagemaker")
+session <- sagemaker$Session()
+```
 
 Calling `default_bucket()` on the SageMaker session object returns the
 name of the default SageMaker bucket we created during the initial setup
@@ -61,22 +65,26 @@ in the first article of this series. We choose *hotels* as our project
 name and we further specify the S3 *data* and *models* paths we also
 used earlier.
 
-    bucket <- session$default_bucket()
-    project <-  "hotels"
-    data_path <- paste0(project, "/", "data")
-    models_path = paste0("s3://", bucket, "/", project, "/", "models")
+``` r
+bucket <- session$default_bucket()
+project <-  "hotels"
+data_path <- paste0(project, "/", "data")
+models_path = paste0("s3://", bucket, "/", project, "/", "models")
+```
 
 Next, we retrieve the paths to the datasets we uploaded to S3 in the
 previous module. We need this information later when telling SageMaker
 where to fetch the data from when starting the hyperparameter tuning job
 and the inference job.
 
-    data_s3_location <- session$list_s3_files(bucket, data_path)
-    data_s3_location
+``` r
+data_s3_location <- session$list_s3_files(bucket, data_path)
+data_s3_location
 
-    s3_train <- paste0("s3://", bucket, "/", "hotels/data/hotels_training.csv")
-    s3_validation <- paste0("s3://", bucket, "/", "hotels/data/hotels_validation.csv")
-    s3_test <- paste0("s3://", bucket, "/", "hotels/data/hotels_test.csv")
+s3_train <- paste0("s3://", bucket, "/", "hotels/data/hotels_training.csv")
+s3_validation <- paste0("s3://", bucket, "/", "hotels/data/hotels_validation.csv")
+s3_test <- paste0("s3://", bucket, "/", "hotels/data/hotels_test.csv")
+```  
 
 Training and tuning the machine model
 -------------------------------------
@@ -235,27 +243,28 @@ parameters in the constructor:
     training job uses.
 
 <!-- -->
+``` r
+region <- session$boto_region_name
 
-    region <- session$boto_region_name
+# get container image location
+container <- sagemaker$amazon$amazon_estimator$get_image_uri(region, "xgboost",
+                                                             repo_version = "1.0-1")
 
-    # get container image location
-    container <- sagemaker$amazon$amazon_estimator$get_image_uri(region, "xgboost",
-                                                                 repo_version = "1.0-1")
+# get SageMaker execution role stored in .Renviron
+role_arn <- Sys.getenv("SAGEMAKER_ROLE_ARN")
 
-    # get SageMaker execution role stored in .Renviron
-    role_arn <- Sys.getenv("SAGEMAKER_ROLE_ARN")
-
-    # Create an Estimator object
-    xgb_estimator <- sagemaker$estimator$Estimator(
-      image_name = container,
-      role = role_arn,
-      train_instance_count = 1L,
-      train_instance_type = "ml.m5.12xlarge",
-      train_volume_size = 30L,
-      train_max_run = 3600L,
-      output_path = models_path,
-      sagemaker_session = session
-    )
+# Create an Estimator object
+xgb_estimator <- sagemaker$estimator$Estimator(
+  image_name = container,
+  role = role_arn,
+  train_instance_count = 1L,
+  train_instance_type = "ml.m5.12xlarge",
+  train_volume_size = 30L,
+  train_max_run = 3600L,
+  output_path = models_path,
+  sagemaker_session = session
+)
+```
 
 ### Step 2 - Define the static hyperparameters
 
@@ -263,10 +272,12 @@ Next, we set the static hyperparameters of the XGBoost algorithm that
 won’t be tuned by calling `set_hyperparameters()` on the Estimator
 object:
 
-    xgb_estimator$set_hyperparameters(
-      objective = "binary:logistic",
-      min_child_weight = 1 
-    )
+``` r
+xgb_estimator$set_hyperparameters(
+  objective = "binary:logistic",
+  min_child_weight = 1 
+)
+```
 
 ### Step 3 - Define the tunable hyperparameters
 
@@ -290,11 +301,13 @@ Logarithmic scaling only works for ranges that have values greater than
 reverse logarithmic scaling whenever the appropriate choice is clear
 from the hyperparameter ranges.
 
-    hyperparameter_ranges <- list(
-      num_round = sagemaker$tuner$IntegerParameter(100L, 1000L),
-      max_depth = sagemaker$tuner$IntegerParameter(1L, 10L),
-      eta = sagemaker$tuner$ContinuousParameter(00.1, 0.5, "Logarithmic")
-    )
+``` r
+hyperparameter_ranges <- list(
+  num_round = sagemaker$tuner$IntegerParameter(100L, 1000L),
+  max_depth = sagemaker$tuner$IntegerParameter(1L, 10L),
+  eta = sagemaker$tuner$ContinuousParameter(00.1, 0.5, "Logarithmic")
+)
+```
 
 We go with [the default
 settings](https://docs.aws.amazon.com/sagemaker/latest/dg/xgboost_hyperparameters.html)
@@ -336,16 +349,17 @@ parameters in the constructor:
     round.
 
 <!-- -->
-
-    tuner <- sagemaker$tuner$HyperparameterTuner(
-      estimator = xgb_estimator,
-      objective_metric_name = "validation:auc",
-      hyperparameter_ranges = hyperparameter_ranges, 
-      strategy = "Bayesian",
-      objective_type = "Maximize",
-      max_jobs = 30L,
-      max_parallel_jobs = 3L
-    )
+``` r
+tuner <- sagemaker$tuner$HyperparameterTuner(
+  estimator = xgb_estimator,
+  objective_metric_name = "validation:auc",
+  hyperparameter_ranges = hyperparameter_ranges, 
+  strategy = "Bayesian",
+  objective_type = "Maximize",
+  max_jobs = 30L,
+  max_parallel_jobs = 3L
+)
+```
 
 Based on the configuration of the Estimator object and the
 HyperparameterTuner object, we will start 30 training jobs in total with
@@ -367,18 +381,20 @@ the tuning job:
 *Note*: At the time of writing a tuner job name is restricted to 32
 letters.
 
-    algo <- "xgb"
-    timestamp <- format(Sys.time(), "%Y-%m-%d-%H-%M-%S")
-    job_name <- paste(project, algo, timestamp, sep = "-")
+``` r
+algo <- "xgb"
+timestamp <- format(Sys.time(), "%Y-%m-%d-%H-%M-%S")
+job_name <- paste(project, algo, timestamp, sep = "-")
 
 
-    s3_train_input <- sagemaker$s3_input(s3_data = s3_train,
-                                         content_type = 'csv')
-    s3_valid_input <- sagemaker$s3_input(s3_data = s3_validation,
-                                         content_type = 'csv')
+s3_train_input <- sagemaker$s3_input(s3_data = s3_train,
+                                     content_type = 'csv')
+s3_valid_input <- sagemaker$s3_input(s3_data = s3_validation,
+                                     content_type = 'csv')
 
-    input_data <- list('train' = s3_train_input,
-                       'validation' = s3_valid_input)
+input_data <- list('train' = s3_train_input,
+                   'validation' = s3_valid_input)
+```
 
 ### Step 6 - Start the tuning job
 
@@ -391,15 +407,19 @@ from ECR and pulls it into the newly launched EC2 training cluster. All
 of this happens fully-managed behind the scenes without further
 interaction with the user.
 
-    tuner$fit(inputs = input_data, 
-              job_name = job_name)
+``` r
+tuner$fit(inputs = input_data, 
+          job_name = job_name)
+```
 
 We can check via the API when the training job is finished. Once it has
 reached the status **Completed** you can move ahead to the next section.
 
-    session$describe_tuning_job(job_name)[["HyperParameterTuningJobStatus"]]
+``` r
+session$describe_tuning_job(job_name)[["HyperParameterTuningJobStatus"]]
 
-    ## [1] "Completed"
+## [1] "Completed"
+```
 
 ### Step 7 - Evaluate the tuning job results
 
@@ -408,24 +428,26 @@ shuts down and terminates our EC2 training cluster. We now check the
 tuning results by examining the final AUC value of each of the 30
 training jobs first.
 
-    tuning_job_results <- sagemaker$HyperparameterTuningJobAnalytics(job_name)
-    tuning_results_df <- tuning_job_results$dataframe()
-    head(tuning_results_df)[, c(1:4, 6)]
+``` r
+tuning_job_results <- sagemaker$HyperparameterTuningJobAnalytics(job_name)
+tuning_results_df <- tuning_job_results$dataframe()
+head(tuning_results_df)[, c(1:4, 6)]
 
-    ##         eta max_depth num_round                             TrainingJobName
-    ## 1 0.1541080        10       100 hotels-xgb-2020-06-30-15-46-50-030-edf917d1
-    ## 2 0.1063944         9       108 hotels-xgb-2020-06-30-15-46-50-029-254d02dc
-    ## 3 0.1117450        10       350 hotels-xgb-2020-06-30-15-46-50-028-e09e96cf
-    ## 4 0.1028238         7       100 hotels-xgb-2020-06-30-15-46-50-027-e49e55a6
-    ## 5 0.1098748         9       126 hotels-xgb-2020-06-30-15-46-50-026-b870ae81
-    ## 6 0.1160199         9       166 hotels-xgb-2020-06-30-15-46-50-025-9c4b6508
-    ##   FinalObjectiveValue
-    ## 1             0.92384
-    ## 2             0.92683
-    ## 3             0.92108
-    ## 4             0.92521
-    ## 5             0.92799
-    ## 6             0.92478
+##         eta max_depth num_round                             TrainingJobName
+## 1 0.1541080        10       100 hotels-xgb-2020-06-30-15-46-50-030-edf917d1
+## 2 0.1063944         9       108 hotels-xgb-2020-06-30-15-46-50-029-254d02dc
+## 3 0.1117450        10       350 hotels-xgb-2020-06-30-15-46-50-028-e09e96cf
+## 4 0.1028238         7       100 hotels-xgb-2020-06-30-15-46-50-027-e49e55a6
+## 5 0.1098748         9       126 hotels-xgb-2020-06-30-15-46-50-026-b870ae81
+## 6 0.1160199         9       166 hotels-xgb-2020-06-30-15-46-50-025-9c4b6508
+##   FinalObjectiveValue
+## 1             0.92384
+## 2             0.92683
+## 3             0.92108
+## 4             0.92521
+## 5             0.92799
+## 6             0.92478
+```
 
 We can also plot a time series chart that shows how our objective metric
 AUC developed over the course of the 30 training jobs based on the
@@ -433,14 +455,16 @@ underlying tuning orchestrated by the Bayesian optimizer. In the chart
 you can see that every time three training jobs were started in parallel
 .
 
-    # Tuning diagnostics 
-    ggplot(tuning_results_df, aes(TrainingEndTime, FinalObjectiveValue)) +
-      geom_point() +
-      xlab("Time") +
-      ylab(tuning_job_results$description()$TrainingJobDefinition$StaticHyperParameters$`_tuning_objective_metric`) +
-      ggtitle("Hyperparameter tuning objective metric",  
-              "Progression over the period of all 30 training jobs") +
-      theme_minimal()
+``` r
+# Tuning diagnostics 
+ggplot(tuning_results_df, aes(TrainingEndTime, FinalObjectiveValue)) +
+  geom_point() +
+  xlab("Time") +
+  ylab(tuning_job_results$description()$TrainingJobDefinition$StaticHyperParameters$`_tuning_objective_metric`) +
+  ggtitle("Hyperparameter tuning objective metric",  
+          "Progression over the period of all 30 training jobs") +
+  theme_minimal()
+```
 
 <img src="images/objective_metric_progression.png" style="display: block; margin: auto;" />
 
@@ -451,11 +475,13 @@ shows the quality of the corresponding models based on the underlying
 AUC scores on the validation set. Yellow dots correspond to models with
 better AUC scores and violet dots indicate a worse AUC.
 
-    ggplot(tuning_results_df, aes(num_round, eta)) +
-      geom_point(aes(color = FinalObjectiveValue)) +
-      scale_color_viridis("AUC", option = "D") +
-      ggtitle("Hyperparameter tuning objective metric progression", "Using a Bayesian strategy") +
-      theme_minimal()
+``` r
+ggplot(tuning_results_df, aes(num_round, eta)) +
+  geom_point(aes(color = FinalObjectiveValue)) +
+  scale_color_viridis("AUC", option = "D") +
+  ggtitle("Hyperparameter tuning objective metric progression", "Using a Bayesian strategy") +
+  theme_minimal()
+```
 
 <img src="images/bayesian_optimization.png" style="display: block; margin: auto;" />
 
@@ -463,26 +489,28 @@ Next, we extract the name of the best training job from the job list and
 then call `describe_training_job()` on the session object to get
 additional information about the best training job:
 
-    best_tuned_model <- tuning_results_df %>%
-      filter(FinalObjectiveValue == max(FinalObjectiveValue)) %>%
-      pull(TrainingJobName)
-    best_tuned_model
+``` r
+best_tuned_model <- tuning_results_df %>%
+  filter(FinalObjectiveValue == max(FinalObjectiveValue)) %>%
+  pull(TrainingJobName)
+best_tuned_model
 
-    ## [1] "hotels-xgb-2020-06-30-15-46-50-026-b870ae81"
+## [1] "hotels-xgb-2020-06-30-15-46-50-026-b870ae81"
 
-    training_job_stats <- session$describe_training_job(job_name = best_tuned_model)
+training_job_stats <- session$describe_training_job(job_name = best_tuned_model)
 
-    final_metrics <-  map_df(training_job_stats$FinalMetricDataList, 
-                              ~tibble(metric_name = .x[["MetricName"]],
-                                      value = .x[["Value"]]))
-    final_metrics
+final_metrics <-  map_df(training_job_stats$FinalMetricDataList, 
+                          ~tibble(metric_name = .x[["MetricName"]],
+                                  value = .x[["Value"]]))
+final_metrics
 
-    ## # A tibble: 3 x 2
-    ##   metric_name     value
-    ##   <chr>           <dbl>
-    ## 1 validation:auc  0.928
-    ## 2 train:auc       0.992
-    ## 3 ObjectiveMetric 0.928
+## # A tibble: 3 x 2
+##   metric_name     value
+##   <chr>           <dbl>
+## 1 validation:auc  0.928
+## 2 train:auc       0.992
+## 3 ObjectiveMetric 0.928
+```
 
 Final model evaluation
 ----------------------
@@ -512,37 +540,43 @@ SageMaker training job by calling `create_from_job()` on the session
 object. If no model name is specified, the model automatically gets the
 name of the training job.
 
-    predictions_path = paste0(models_path, "/", best_tuned_model, "/predictions")
+``` r
+predictions_path <- paste0(models_path, "/", best_tuned_model, "/predictions")
 
-    session$create_model_from_job(best_tuned_model)
+session$create_model_from_job(best_tuned_model)
 
-    xgb_batch_predictor = sagemaker$transformer$Transformer(
-      model_name = best_tuned_model,
-      instance_count = 1L, 
-      instance_type = "ml.m5.4xlarge", 
-      strategy = "MultiRecord",
-      assemble_with = "Line",
-      output_path = predictions_path
-    )
+xgb_batch_predictor <- sagemaker$transformer$Transformer(
+  model_name = best_tuned_model,
+  instance_count = 1L, 
+  instance_type = "ml.m5.4xlarge", 
+  strategy = "MultiRecord",
+  assemble_with = "Line",
+  output_path = predictions_path
+)
+```
 
 ### Step 2 - Start the batch prediction job
 
 We start our batch prediction job by calling `transform()` on the
 Transformer object.
 
-    xgb_batch_predictor$transform(
-      data = s3_test, 
-      content_type = 'text/csv',
-      split_type = "Line",
-      job_name = best_tuned_model)
+``` r
+xgb_batch_predictor$transform(
+  data = s3_test, 
+  content_type = 'text/csv',
+  split_type = "Line",
+  job_name = best_tuned_model)
+```
 
 We can check via the API when the batch prediction job is finished and
 the inference cluster is shut and terminated. Once it has reached the
 status **Completed** you can move ahead to the next section.
 
-    session$describe_transform_job(best_tuned_model)[["TransformJobStatus"]]
+``` r
+session$describe_transform_job(best_tuned_model)[["TransformJobStatus"]]
 
-    ## [1] "Completed"
+## [1] "Completed"
+```
 
 ### Step 3 - Download the test set predictions
 
@@ -552,97 +586,103 @@ test set we stored in the previous article from disk. We store the
 predictions with the actual test set outcomes in a new tibble
 `test_results`.
 
-    s3_downloader <- sagemaker$s3$S3Downloader()
-    s3_test_predictions_path <- s3_downloader$list(predictions_path)
-     
-    dir.create("./predictions")
+``` r
+s3_downloader <- sagemaker$s3$S3Downloader()
+s3_test_predictions_path <- s3_downloader$list(predictions_path)
+ 
+dir.create("./predictions")
 
-    ## Warning in dir.create("./predictions"): '.\predictions' already exists
+## Warning in dir.create("./predictions"): '.\predictions' already exists
 
-    s3_downloader$download(s3_test_predictions_path, "./predictions")
-     
-    test_predictions <- read_csv("./predictions/hotels_test.csv.out",
-                                  col_names = FALSE) %>% 
-       pull(X1)
+s3_downloader$download(s3_test_predictions_path, "./predictions")
+ 
+test_predictions <- read_csv("./predictions/hotels_test.csv.out",
+                              col_names = FALSE) %>% 
+   pull(X1)
 
-    hotels_test <- read_csv("../data/hotels_test_with_dependent_variable.csv")
+hotels_test <- read_csv("../data/hotels_test_with_dependent_variable.csv")
 
-    test_results <- tibble(
-      truth = hotels_test$children,
-      predictions = test_predictions
-    )
+test_results <- tibble(
+  truth = hotels_test$children,
+  predictions = test_predictions
+)
 
-    head(test_results)
+head(test_results)
 
-    ## # A tibble: 6 x 2
-    ##   truth predictions
-    ##   <dbl>       <dbl>
-    ## 1     0     0.00679
-    ## 2     0     0.0151 
-    ## 3     0     0.00475
-    ## 4     0     0.0532 
-    ## 5     0     0.0244 
-    ## 6     0     0.00345
+## # A tibble: 6 x 2
+##   truth predictions
+##   <dbl>       <dbl>
+## 1     0     0.00679
+## 2     0     0.0151 
+## 3     0     0.00475
+## 4     0     0.0532 
+## 5     0     0.0244 
+## 6     0     0.00345
+```
 
 ### Step 4 - Evaluate the test set predictions
 
 Let us have a look at the ROC curve and the AUC value of the test data
 set using the `pROC` package:
 
-    roc_obj <- roc(test_results$truth, test_results$predictions,
-                   plot = TRUE,         
-                   grid = TRUE,
-                   print.auc = TRUE,
-                   legacy.axes = TRUE, 
-                   main = "ROC curve for XGBoost classification using the best model",
-                   show.thres=TRUE,
-                   col = "red2"
-    )
+``` r
+roc_obj <- roc(test_results$truth, test_results$predictions,
+               plot = TRUE,         
+               grid = TRUE,
+               print.auc = TRUE,
+               legacy.axes = TRUE, 
+               main = "ROC curve for XGBoost classification using the best model",
+               show.thres=TRUE,
+               col = "red2"
+)
 
-    ## Setting levels: control = 0, case = 1
+## Setting levels: control = 0, case = 1
 
-    ## Setting direction: controls < cases
+## Setting direction: controls < cases
+```
 
 ![](images/roc_curve.png)
 
 Creating a confusion matrix using the `caret` package we see the
 following results:
 
-    conf_matrix <- confusionMatrix(
-      factor(ifelse(test_results$predictions >= 0.5, 1, 0), levels = c("0", "1"), 
-             labels = c("no children", "children")),
-      factor(test_results$truth, levels = c(0, 1), 
-             labels = c("no children", "children")), 
-      positive = "children")
-    conf_matrix
+``` r
+conf_matrix <- confusionMatrix(
+  factor(ifelse(test_results$predictions >= 0.5, 1, 0), levels = c("0", "1"), 
+         labels = c("no children", "children")),
+  factor(test_results$truth, levels = c(0, 1), 
+         labels = c("no children", "children")), 
+  positive = "children")
+conf_matrix
 
-    ## Confusion Matrix and Statistics
-    ## 
-    ##              Reference
-    ## Prediction    no children children
-    ##   no children        6827      300
-    ##   children             66      307
-    ##                                          
-    ##                Accuracy : 0.9512         
-    ##                  95% CI : (0.9461, 0.956)
-    ##     No Information Rate : 0.9191         
-    ##     P-Value [Acc > NIR] : < 2.2e-16      
-    ##                                          
-    ##                   Kappa : 0.602          
-    ##                                          
-    ##  Mcnemar's Test P-Value : < 2.2e-16      
-    ##                                          
-    ##             Sensitivity : 0.50577        
-    ##             Specificity : 0.99043        
-    ##          Pos Pred Value : 0.82306        
-    ##          Neg Pred Value : 0.95791        
-    ##              Prevalence : 0.08093        
-    ##          Detection Rate : 0.04093        
-    ##    Detection Prevalence : 0.04973        
-    ##       Balanced Accuracy : 0.74810        
-    ##                                          
-    ##        'Positive' Class : children       
-    ## 
+## Confusion Matrix and Statistics
+## 
+##              Reference
+## Prediction    no children children
+##   no children        6827      300
+##   children             66      307
+##                                          
+##                Accuracy : 0.9512         
+##                  95% CI : (0.9461, 0.956)
+##     No Information Rate : 0.9191         
+##     P-Value [Acc > NIR] : < 2.2e-16      
+##                                          
+##                   Kappa : 0.602          
+##                                          
+##  Mcnemar's Test P-Value : < 2.2e-16      
+##                                          
+##             Sensitivity : 0.50577        
+##             Specificity : 0.99043        
+##          Pos Pred Value : 0.82306        
+##          Neg Pred Value : 0.95791        
+##              Prevalence : 0.08093        
+##          Detection Rate : 0.04093        
+##    Detection Prevalence : 0.04973        
+##       Balanced Accuracy : 0.74810        
+##                                          
+##        'Positive' Class : children       
+## 
+```
 
 Even though the accuracy for the test set predictions is quite high, the
 model did not perform that well in identifying the “positive” class

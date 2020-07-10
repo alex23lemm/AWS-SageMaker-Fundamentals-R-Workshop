@@ -13,11 +13,13 @@ Installing reticulate and miniconda
 We get started by launching R/RStudio to install the `reticulate`
 package and `miniconda` on your machine:
 
-    install.packages("reticulate")
+``` r
+install.packages("reticulate")
 
-    library(reticulate)
+library(reticulate)
 
-    install_miniconda()
+install_miniconda()
+```
 
 If you are using Windows, then after installing miniconda, please make
 sure to add the following entries to your system `PATH` variable,
@@ -47,9 +49,11 @@ Creating an Amazon SageMaker conda environment
 Next, we will create a new conda environment which we will use
 throughout this course to connect to Amazon SageMaker:
 
-    library(reticulate)
+``` r
+library(reticulate)
 
-    conda_create("sagemaker-r")
+conda_create("sagemaker-r")
+```
 
 If you installed everything from scratch so far, you should now see
 three listed conda environments: `r-miniconda` which came with the
@@ -57,25 +61,29 @@ miniconda installation, `r-reticluate` which is the standard environment
 used by the `reticulate` package, and `sagemaker-r` which we just
 created:
 
-    conda_list()
+``` r
+conda_list()
 
-    ##           name
-    ## 1  r-miniconda
-    ## 2 r-reticulate
-    ## 3  sagemaker-r
-    ##                                                                             python
-    ## 1                     C:\\Users\\alexlemm\\AppData\\Local\\r-miniconda\\python.exe
-    ## 2 C:\\Users\\alexlemm\\AppData\\Local\\r-miniconda\\envs\\r-reticulate\\python.exe
-    ## 3  C:\\Users\\alexlemm\\AppData\\Local\\r-miniconda\\envs\\sagemaker-r\\python.exe
+##           name
+## 1  r-miniconda
+## 2 r-reticulate
+## 3  sagemaker-r
+##                                                                             python
+## 1                     C:\\Users\\alexlemm\\AppData\\Local\\r-miniconda\\python.exe
+## 2 C:\\Users\\alexlemm\\AppData\\Local\\r-miniconda\\envs\\r-reticulate\\python.exe
+## 3  C:\\Users\\alexlemm\\AppData\\Local\\r-miniconda\\envs\\sagemaker-r\\python.exe
+```
 
 Now, we will install the necessary Python packages in our new
 environment. We only install pandas in our environment to avoid getting
 a warning message every time we import the Amazon SageMaker Python
 module in our R scripts. Otherwise we won’t need/use pandas.
 
-    conda_install("sagemaker-r", "boto3", pip = TRUE)
-    conda_install("sagemaker-r", "sagemaker", pip = TRUE)
-    conda_install("sagemaker-r", "pandas")
+``` r
+conda_install("sagemaker-r", "boto3", pip = TRUE)
+conda_install("sagemaker-r", "sagemaker", pip = TRUE)
+conda_install("sagemaker-r", "pandas")
+```
 
 **Alternative package installation**: If you don’t like to edit your
 system `PATH` variable in order to install Python libraries using pip
@@ -172,83 +180,85 @@ To do so, please execute the following steps:
 You can also create the role you generated in the section above with the
 exact same permissions programmatically by executing the following code:
 
-    # Activate the conda environment we created earlier
-    use_condaenv("sagemaker-r", required = TRUE)
+``` r
+# Activate the conda environment we created earlier
+use_condaenv("sagemaker-r", required = TRUE)
 
-    # Create a boto3 client to access IAM
-    boto3 <- import("boto3")
-    iam_client <- boto3$client("iam")
+# Create a boto3 client to access IAM
+boto3 <- import("boto3")
+iam_client <- boto3$client("iam")
 
-    time_stamp <- format(Sys.time(), "%Y%m%dT%H%M%S")
+time_stamp <- format(Sys.time(), "%Y%m%dT%H%M%S")
 
-    role_name = paste0("AmazonSageMaker-ExecutionRole-", time_stamp)
+role_name = paste0("AmazonSageMaker-ExecutionRole-", time_stamp)
 
-    # A trust relationship policy defines which entity can assume this role. 
-    # In our case that will be the Amazon SageMaker service
-    trust_relationship_policy <- '{
-      "Version": "2012-10-17",
-      "Statement": [
+# A trust relationship policy defines which entity can assume this role. 
+# In our case that will be the Amazon SageMaker service
+trust_relationship_policy <- '{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "sagemaker.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}'
+
+# Creating the new IAM role
+resp <- iam_client$create_role(Path = "/service-role/",
+                        RoleName = role_name,
+                        AssumeRolePolicyDocument = trust_relationship_policy,
+                        Description = "SageMaker execution role created from RStudio")
+
+# This is the role's ARN we need to save as an environment variable later! 
+role_arn <- resp$Role$Arn
+
+# Attach the AWS managed policy "AmazonSageMakerFullAccess" to the role. 
+# This policy provides full access to Amazon SageMaker via the AWS Management Console and SDK. 
+# It also provides selected access to related services (e.g., S3, ECR, CloudWatch Logs). 
+resp <- iam_client$attach_role_policy(RoleName = role_name, 
+                                      PolicyArn = "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess")
+
+# Create a new managed policy which also will be attached to the new role. 
+policy_document <- '{
+    "Version": "2012-10-17",
+    "Statement": [
         {
-          "Effect": "Allow",
-          "Principal": {
-            "Service": "sagemaker.amazonaws.com"
-          },
-          "Action": "sts:AssumeRole"
+            "Action": [
+                "s3:ListBucket"
+            ],
+            "Effect": "Allow",
+            "Resource": [
+                "arn:aws:s3:::SageMaker"
+            ]
+        },
+        {
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject"
+            ],
+            "Effect": "Allow",
+            "Resource": [
+                "arn:aws:s3:::SageMaker/*"
+            ]
         }
-      ]
-    }'
+    ]
+}'
 
-    # Creating the new IAM role
-    resp <- iam_client$create_role(Path = "/service-role/",
-                            RoleName = role_name,
-                            AssumeRolePolicyDocument = trust_relationship_policy,
-                            Description = "SageMaker execution role created from RStudio")
+resp <- iam_client$create_policy(PolicyName = paste0("AmazonSageMaker-ExecutionPolicy-", time_stamp),
+                                 Path = "/service-role/",
+                                 PolicyDocument = policy_document)
+policy_arn <- resp$Policy$Arn
+resp <- iam_client$attach_role_policy(RoleName = role_name,
+                                      PolicyArn = policy_arn)
 
-    # This is the role's ARN we need to save as an environment variable later! 
-    role_arn <- resp$Role$Arn
-
-    # Attach the AWS managed policy "AmazonSageMakerFullAccess" to the role. 
-    # This policy provides full access to Amazon SageMaker via the AWS Management Console and SDK. 
-    # It also provides selected access to related services (e.g., S3, ECR, CloudWatch Logs). 
-    resp <- iam_client$attach_role_policy(RoleName = role_name, 
-                                          PolicyArn = "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess")
-
-    # Create a new managed policy which also will be attached to the new role. 
-    policy_document <- '{
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Action": [
-                    "s3:ListBucket"
-                ],
-                "Effect": "Allow",
-                "Resource": [
-                    "arn:aws:s3:::SageMaker"
-                ]
-            },
-            {
-                "Action": [
-                    "s3:GetObject",
-                    "s3:PutObject",
-                    "s3:DeleteObject"
-                ],
-                "Effect": "Allow",
-                "Resource": [
-                    "arn:aws:s3:::SageMaker/*"
-                ]
-            }
-        ]
-    }'
-
-    resp <- iam_client$create_policy(PolicyName = paste0("AmazonSageMaker-ExecutionPolicy-", time_stamp),
-                                     Path = "/service-role/",
-                                     PolicyDocument = policy_document)
-    policy_arn <- resp$Policy$Arn
-    resp <- iam_client$attach_role_policy(RoleName = role_name,
-                                          PolicyArn = policy_arn)
-
-    # Print the role's ARN to the console and copy it to the clipboard
-    role_arn
+# Print the role's ARN to the console and copy it to the clipboard
+role_arn
+```
 
 ### Saving the role ARN as an R environment variable
 
@@ -265,7 +275,9 @@ Testing your setup
 We are finally ready to test our setup! In RStudio select the new conda
 environment we created earlier:
 
-    use_condaenv("sagemaker-r", required = TRUE)
+``` r
+use_condaenv("sagemaker-r", required = TRUE)
+```
 
 Execute the following lines of code which import the SageMaker Python
 module, create a SageMaker Session object and create a default Amazon S3
@@ -273,11 +285,13 @@ bucket for our sessions. Calling `default_bucket()` the first time will
 create the default bucket based on the following format:
 `sagemaker-[YOUR_REGION]-[YOUR_AWS_ACCOUNT_ID]`:
 
-    sagemaker <- import("sagemaker")
-    session <- sagemaker$Session()
+``` r
+sagemaker <- import("sagemaker")
+session <- sagemaker$Session()
 
-    my_bucket <- session$default_bucket()
-    my_bucket
+my_bucket <- session$default_bucket()
+my_bucket
+```
 
 If everything was configured correctly, you should have been able to
 execute the four lines of code above successfully and now see the name

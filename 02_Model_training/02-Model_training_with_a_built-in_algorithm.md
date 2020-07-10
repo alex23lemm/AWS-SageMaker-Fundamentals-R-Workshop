@@ -96,14 +96,16 @@ Loading all necessary libraries
 To use code in this article, you will need to install the following
 packages:
 
-    library(readr)        # for importing the raw data and saving trainig, validation, test sets to disk 
-    library(recipes)      # for preprocessing the data
-    library(dplyr)        # for preprocessing the data
-    library(rsample)      # for splitting the data
-    library(reticulate)   # for calling the SageMaker Python SDK from R
-    library(purrr)        # primarily for parsing the SageMaker responses
-    library(pROC)         # for the evaluation of the final model performance
-    library(caret)        # for the evaluation of the final model performance
+``` r
+library(readr)        # for importing the raw data and saving trainig, validation, test sets to disk 
+library(recipes)      # for preprocessing the data
+library(dplyr)        # for preprocessing the data
+library(rsample)      # for splitting the data
+library(reticulate)   # for calling the SageMaker Python SDK from R
+library(purrr)        # primarily for parsing the SageMaker responses
+library(pROC)         # for the evaluation of the final model performance
+library(caret)        # for the evaluation of the final model performance
+```
 
 Exploring the data
 ------------------
@@ -113,49 +115,53 @@ do an in-depth data exploration here. Please, refer to the resources
 linked in the data set section if you are interested in more details on
 the data itself.
 
-    hotels <- read_csv('https://tidymodels.org/start/case-study/hotels.csv') %>%   
-      mutate_if(is.character, as.factor)
+``` r
+hotels <- read_csv('https://tidymodels.org/start/case-study/hotels.csv') %>%   
+  mutate_if(is.character, as.factor)
 
-    str(hotels)
+str(hotels)
 
-    ## tibble [50,000 x 23] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
-    ##  $ hotel                         : Factor w/ 2 levels "City_Hotel","Resort_Hotel": 1 1 2 2 2 1 2 1 1 1 ...
-    ##  $ lead_time                     : num [1:50000] 217 2 95 143 136 67 47 56 80 6 ...
-    ##  $ stays_in_weekend_nights       : num [1:50000] 1 0 2 2 1 2 0 0 0 2 ...
-    ##  $ stays_in_week_nights          : num [1:50000] 3 1 5 6 4 2 2 3 4 2 ...
-    ##  $ adults                        : num [1:50000] 2 2 2 2 2 2 2 0 2 2 ...
-    ##  $ children                      : Factor w/ 2 levels "children","none": 2 2 2 2 2 2 1 1 2 1 ...
-    ##  $ meal                          : Factor w/ 5 levels "BB","FB","HB",..: 1 1 1 3 3 4 1 1 1 1 ...
-    ##  $ country                       : Factor w/ 155 levels "AGO","AIA","ALB",..: 40 120 54 124 120 54 48 48 51 51 ...
-    ##  $ market_segment                : Factor w/ 7 levels "Aviation","Complementary",..: 6 4 7 7 4 7 4 7 7 7 ...
-    ##  $ distribution_channel          : Factor w/ 5 levels "Corporate","Direct",..: 4 2 4 4 2 4 2 4 4 4 ...
-    ##  $ is_repeated_guest             : num [1:50000] 0 0 0 0 0 0 0 0 0 0 ...
-    ##  $ previous_cancellations        : num [1:50000] 0 0 0 0 0 0 0 0 0 0 ...
-    ##  $ previous_bookings_not_canceled: num [1:50000] 0 0 0 0 0 0 0 0 0 0 ...
-    ##  $ reserved_room_type            : Factor w/ 9 levels "A","B","C","D",..: 1 4 1 1 6 1 3 2 4 1 ...
-    ##  $ assigned_room_type            : Factor w/ 10 levels "A","B","C","D",..: 1 10 1 1 6 1 3 1 4 1 ...
-    ##  $ booking_changes               : num [1:50000] 0 0 2 0 0 0 0 0 0 0 ...
-    ##  $ deposit_type                  : Factor w/ 3 levels "No_Deposit","Non_Refund",..: 1 1 1 1 1 1 1 1 1 1 ...
-    ##  $ days_in_waiting_list          : num [1:50000] 0 0 0 0 0 0 0 0 0 0 ...
-    ##  $ customer_type                 : Factor w/ 4 levels "Contract","Group",..: 4 3 3 3 3 3 3 3 3 3 ...
-    ##  $ average_daily_rate            : num [1:50000] 80.8 170 8 81 157.6 ...
-    ##  $ required_car_parking_spaces   : Factor w/ 2 levels "none","parking": 1 1 1 1 1 1 1 1 1 1 ...
-    ##  $ total_of_special_requests     : num [1:50000] 1 3 2 1 4 1 1 1 1 1 ...
-    ##  $ arrival_date                  : Date[1:50000], format: "2016-09-01" "2017-08-25" ...
+## tibble [50,000 x 23] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##  $ hotel                         : Factor w/ 2 levels "City_Hotel","Resort_Hotel": 1 1 2 2 2 1 2 1 1 1 ...
+##  $ lead_time                     : num [1:50000] 217 2 95 143 136 67 47 56 80 6 ...
+##  $ stays_in_weekend_nights       : num [1:50000] 1 0 2 2 1 2 0 0 0 2 ...
+##  $ stays_in_week_nights          : num [1:50000] 3 1 5 6 4 2 2 3 4 2 ...
+##  $ adults                        : num [1:50000] 2 2 2 2 2 2 2 0 2 2 ...
+##  $ children                      : Factor w/ 2 levels "children","none": 2 2 2 2 2 2 1 1 2 1 ...
+##  $ meal                          : Factor w/ 5 levels "BB","FB","HB",..: 1 1 1 3 3 4 1 1 1 1 ...
+##  $ country                       : Factor w/ 155 levels "AGO","AIA","ALB",..: 40 120 54 124 120 54 48 48 51 51 ...
+##  $ market_segment                : Factor w/ 7 levels "Aviation","Complementary",..: 6 4 7 7 4 7 4 7 7 7 ...
+##  $ distribution_channel          : Factor w/ 5 levels "Corporate","Direct",..: 4 2 4 4 2 4 2 4 4 4 ...
+##  $ is_repeated_guest             : num [1:50000] 0 0 0 0 0 0 0 0 0 0 ...
+##  $ previous_cancellations        : num [1:50000] 0 0 0 0 0 0 0 0 0 0 ...
+##  $ previous_bookings_not_canceled: num [1:50000] 0 0 0 0 0 0 0 0 0 0 ...
+##  $ reserved_room_type            : Factor w/ 9 levels "A","B","C","D",..: 1 4 1 1 6 1 3 2 4 1 ...
+##  $ assigned_room_type            : Factor w/ 10 levels "A","B","C","D",..: 1 10 1 1 6 1 3 1 4 1 ...
+##  $ booking_changes               : num [1:50000] 0 0 2 0 0 0 0 0 0 0 ...
+##  $ deposit_type                  : Factor w/ 3 levels "No_Deposit","Non_Refund",..: 1 1 1 1 1 1 1 1 1 1 ...
+##  $ days_in_waiting_list          : num [1:50000] 0 0 0 0 0 0 0 0 0 0 ...
+##  $ customer_type                 : Factor w/ 4 levels "Contract","Group",..: 4 3 3 3 3 3 3 3 3 3 ...
+##  $ average_daily_rate            : num [1:50000] 80.8 170 8 81 157.6 ...
+##  $ required_car_parking_spaces   : Factor w/ 2 levels "none","parking": 1 1 1 1 1 1 1 1 1 1 ...
+##  $ total_of_special_requests     : num [1:50000] 1 3 2 1 4 1 1 1 1 1 ...
+##  $ arrival_date                  : Date[1:50000], format: "2016-09-01" "2017-08-25" ...
+```
 
 We will train a XGBoost model to predict which actual hotel stays
 included children and/or babies, and which did not. Our outcome variable
 children is a factor variable with two levels:
 
-    hotels %>% 
-      count(children) %>% 
-      mutate(prop = n/sum(n))
+``` r
+hotels %>% 
+  count(children) %>% 
+  mutate(prop = n/sum(n))
 
-    ## # A tibble: 2 x 3
-    ##   children     n   prop
-    ##   <fct>    <int>  <dbl>
-    ## 1 children  4038 0.0808
-    ## 2 none     45962 0.919
+## # A tibble: 2 x 3
+##   children     n   prop
+##   <fct>    <int>  <dbl>
+## 1 children  4038 0.0808
+## 2 none     45962 0.919
+```
 
 We define the “positive” class as having children. We see that the data
 set comes with a huge class imbalance with children only in 8.08% of the
@@ -196,28 +202,29 @@ apply a set of preprocessing steps to our data set:
     data frame which is a prerequisite when serving the data later to
     SageMaker for the training job.
 
-<!-- -->
 
-    holidays <- c("AllSouls", "AshWednesday", "ChristmasEve", "Easter", 
-                  "ChristmasDay", "GoodFriday", "NewYearsDay", "PalmSunday")
+``` r
+holidays <- c("AllSouls", "AshWednesday", "ChristmasEve", "Easter", 
+              "ChristmasDay", "GoodFriday", "NewYearsDay", "PalmSunday")
 
-    hotels_rec <- recipe(children ~ ., data = hotels) %>% 
-      step_date(arrival_date, features = c("dow", "month", "year")) %>%
-      step_holiday(arrival_date, holidays = holidays) %>% 
-      step_rm(arrival_date) %>% 
-      step_zv(all_predictors()) %>% 
-      step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE) 
+hotels_rec <- recipe(children ~ ., data = hotels) %>% 
+  step_date(arrival_date, features = c("dow", "month", "year")) %>%
+  step_holiday(arrival_date, holidays = holidays) %>% 
+  step_rm(arrival_date) %>% 
+  step_zv(all_predictors()) %>% 
+  step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE) 
 
-    hotels_preprocessed <- prep(hotels_rec, training = hotels) %>% 
-      juice() %>% 
-      mutate(
-       children = if_else(children == "children", 1, 0)
-      ) %>% 
-      select(children, everything())
+hotels_preprocessed <- prep(hotels_rec, training = hotels) %>% 
+  juice() %>% 
+  mutate(
+   children = if_else(children == "children", 1, 0)
+  ) %>% 
+  select(children, everything())
 
-    dim(hotels_preprocessed)
+dim(hotels_preprocessed)
 
-    ## [1] 50000   242
+## [1] 50000   242
+```
 
 Please also note that we were able to apply the recipe to the entire
 data set before splitting the data because none of our preprocessing
@@ -239,47 +246,51 @@ We will split the data into a training, a validation and a test set
 using a 70/15/15 split. Because of the class imbalance of the dependent
 variable we will use stratified random sampling using `initial_split()`.
 
-    set.seed(42)
-    splits  <- initial_split(hotels_preprocessed, prop = 0.7, strata = children)
-    hotels_training <- training(splits)
-    hotels_other  <- testing(splits)
+``` r
+set.seed(42)
+splits  <- initial_split(hotels_preprocessed, prop = 0.7, strata = children)
+hotels_training <- training(splits)
+hotels_other  <- testing(splits)
 
-    splits  <- initial_split(hotels_other, prop = 0.5, strata = children)
-    rm(hotels_other)
-    hotels_validation <- training(splits)
-    hotels_test <- testing(splits)
+splits  <- initial_split(hotels_other, prop = 0.5, strata = children)
+rm(hotels_other)
+hotels_validation <- training(splits)
+hotels_test <- testing(splits)
+```
 
 Here we see that stratified random sampling worked as expected:
 
-    hotels_training %>% 
-      count(children) %>% 
-      mutate(prop = n/sum(n))
+``` r
+hotels_training %>% 
+  count(children) %>% 
+  mutate(prop = n/sum(n))
 
-    ## # A tibble: 2 x 3
-    ##   children     n   prop
-    ##      <dbl> <int>  <dbl>
-    ## 1        0 32208 0.920 
-    ## 2        1  2792 0.0798
+## # A tibble: 2 x 3
+##   children     n   prop
+##      <dbl> <int>  <dbl>
+## 1        0 32208 0.920 
+## 2        1  2792 0.0798
 
-    hotels_validation %>% 
-      count(children) %>% 
-      mutate(prop = n/sum(n))
+hotels_validation %>% 
+  count(children) %>% 
+  mutate(prop = n/sum(n))
 
-    ## # A tibble: 2 x 3
-    ##   children     n   prop
-    ##      <dbl> <int>  <dbl>
-    ## 1        0  6861 0.915 
-    ## 2        1   639 0.0852
+## # A tibble: 2 x 3
+##   children     n   prop
+##      <dbl> <int>  <dbl>
+## 1        0  6861 0.915 
+## 2        1   639 0.0852
 
-    hotels_test %>% 
-      count(children) %>% 
-      mutate(prop = n/sum(n))
+hotels_test %>% 
+  count(children) %>% 
+  mutate(prop = n/sum(n))
 
-    ## # A tibble: 2 x 3
-    ##   children     n   prop
-    ##      <dbl> <int>  <dbl>
-    ## 1        0  6893 0.919 
-    ## 2        1   607 0.0809
+## # A tibble: 2 x 3
+##   children     n   prop
+##      <dbl> <int>  <dbl>
+## 1        0  6893 0.919 
+## 2        1   607 0.0809
+```
 
 Now, we will store our pre-processed training, test and validation data
 sets to disk.
@@ -300,17 +311,21 @@ We follow this standard when storing the data sets in CSV format next.
 If you remember we already made sure to move the dependent variable
 `chidren` to the first column when preprocessing the data.
 
-    dir.create("../data")
-    write_csv(hotels_training, "../data/hotels_training.csv", col_names = FALSE)
-    write_csv(hotels_validation, "../data/hotels_validation.csv", col_names = FALSE)
-    write_csv(hotels_test %>% select(-children), 
-              "../data/hotels_test.csv", col_names = FALSE)
+``` r
+dir.create("../data")
+write_csv(hotels_training, "../data/hotels_training.csv", col_names = FALSE)
+write_csv(hotels_validation, "../data/hotels_validation.csv", col_names = FALSE)
+write_csv(hotels_test %>% select(-children), 
+          "../data/hotels_test.csv", col_names = FALSE)
+```
 
 We also store the test set a second time to disk including the dependent
 variable. We will use this dataset in the next workshop module but not
 here.
 
-    write_csv(hotels_test, "../data/hotels_test_with_dependent_variable.csv")
+``` r
+write_csv(hotels_test, "../data/hotels_test_with_dependent_variable.csv")
+```
 
 Before uploading the pre-processed data sets to S3 let us have a quick
 look on how to best organize your machine learning when using S3 and
@@ -436,10 +451,12 @@ provides convenient methods for manipulating entities and resources that
 Amazon SageMaker uses, such as training jobs, endpoints, and input data
 sets in S3.
 
-    use_condaenv("sagemaker-r", required = TRUE)
+``` r
+use_condaenv("sagemaker-r", required = TRUE)
 
-    sagemaker <- import("sagemaker")
-    session <- sagemaker$Session()
+sagemaker <- import("sagemaker")
+session <- sagemaker$Session()
+```
 
 Calling `default_bucket()` on the SageMaker session object will create
 the default SageMaker S3 bucket (if the bucket does not exist yet) and
@@ -447,10 +464,12 @@ return its name to be used by this session. Following the project
 organization principles from above, we choose *hotels* as our project
 name and we further specify the S3 *data* and *models* paths.
 
-    bucket <- session$default_bucket()
-    project <- "hotels"
-    data_path <- paste0("s3://", bucket, "/", project, "/", "data")
-    models_path <- paste0("s3://", bucket, "/", project, "/", "models")
+``` r
+bucket <- session$default_bucket()
+project <- "hotels"
+data_path <- paste0("s3://", bucket, "/", project, "/", "data")
+models_path <- paste0("s3://", bucket, "/", project, "/", "models")
+```
 
 Next, we will use the static method `upload()` from the `S3Uploader`
 class to upload our preprocessed data sets to S3. Each upload will
@@ -459,14 +478,16 @@ We need this path information later when telling SageMaker where to
 fetch the data from when starting the training job and the inference
 job.
 
-    s3_uploader <- sagemaker$s3$S3Uploader()
+``` r
+s3_uploader <- sagemaker$s3$S3Uploader()
 
-    s3_train <- s3_uploader$upload(local_path = "../data/hotels_training.csv", 
-                                   desired_s3_uri = data_path)
-    s3_validation <- s3_uploader$upload(local_path = "../data/hotels_validation.csv",
-                                        desired_s3_uri = data_path)
-    s3_test <- s3_uploader$upload(local_path = "../data/hotels_test.csv", 
-                                  desired_s3_uri = data_path)
+s3_train <- s3_uploader$upload(local_path = "../data/hotels_training.csv", 
+                               desired_s3_uri = data_path)
+s3_validation <- s3_uploader$upload(local_path = "../data/hotels_validation.csv",
+                                    desired_s3_uri = data_path)
+s3_test <- s3_uploader$upload(local_path = "../data/hotels_test.csv", 
+                              desired_s3_uri = data_path)
+```
 
 Training the machine learning model
 -----------------------------------
@@ -530,27 +551,28 @@ following parameters in the constructor:
     training job uses.
 
 <!-- -->
+``` r
+region <- session$boto_region_name
 
-    region <- session$boto_region_name
+# get container image location
+container <- sagemaker$amazon$amazon_estimator$get_image_uri(region,
+"xgboost", repo_version = "1.0-1")
 
-    # get container image location
-    container <- sagemaker$amazon$amazon_estimator$get_image_uri(region,
-    "xgboost", repo_version = "1.0-1")
+# get SageMaker execution role stored in .Renviron
+role_arn <- Sys.getenv("SAGEMAKER_ROLE_ARN")
 
-    # get SageMaker execution role stored in .Renviron
-    role_arn <- Sys.getenv("SAGEMAKER_ROLE_ARN")
-
-    # Create an Estimator object
-    xgb_estimator <- sagemaker$estimator$Estimator(
-      image_name = container,
-      role = role_arn,
-      train_instance_count = 1L,
-      train_instance_type = "ml.m5.4xlarge",
-      train_volume_size = 30L,
-      train_max_run = 3600L,
-      output_path = models_path,
-      sagemaker_session = session
-    )
+# Create an Estimator object
+xgb_estimator <- sagemaker$estimator$Estimator(
+  image_name = container,
+  role = role_arn,
+  train_instance_count = 1L,
+  train_instance_type = "ml.m5.4xlarge",
+  train_volume_size = 30L,
+  train_max_run = 3600L,
+  output_path = models_path,
+  sagemaker_session = session
+)
+```
 
 ### Step 2 - Define the static hyperparameters
 
@@ -570,14 +592,15 @@ for the remaining hyperparameters:
 -   `num_round`: The number of rounds for boosting
 
 <!-- -->
-
-    xgb_estimator$set_hyperparameters(
-      objective = "binary:logistic",
-      eval_metric = "auc",
-      max_depth = 5L, 
-      eta = 0.1,
-      num_round = 100L
-    )
+``` r
+xgb_estimator$set_hyperparameters(
+  objective = "binary:logistic",
+  eval_metric = "auc",
+  max_depth = 5L, 
+  eta = 0.1,
+  num_round = 100L
+)
+```
 
 ### Step 3 - Define the S3 location of the data sets and the training job name
 
@@ -591,20 +614,21 @@ the training job:
     the `[PROJECT_NAME-ALGO_NAME-TIMESTAMP]` naming schema.
 
 <!-- -->
+``` r
+# Create training job name based project organization principles
+algo <- "xgboost"
+timestamp <- format(Sys.time(), "%Y-%m-%d-%H-%M-%S")
+job_name <- paste(project, algo, timestamp, sep = "-")
 
-    # Create training job name based project organization principles
-    algo <- "xgboost"
-    timestamp <- format(Sys.time(), "%Y-%m-%d-%H-%M-%S")
-    job_name <- paste(project, algo, timestamp, sep = "-")
 
+s3_train_input <- sagemaker$s3_input(s3_data = s3_train,
+                                     content_type = 'csv')
+s3_valid_input <- sagemaker$s3_input(s3_data = s3_validation,
+                                     content_type = 'csv')
 
-    s3_train_input <- sagemaker$s3_input(s3_data = s3_train,
-                                         content_type = 'csv')
-    s3_valid_input <- sagemaker$s3_input(s3_data = s3_validation,
-                                         content_type = 'csv')
-
-    input_data <- list('train' = s3_train_input,
-                       'validation' = s3_valid_input)
+input_data <- list('train' = s3_train_input,
+                   'validation' = s3_valid_input)
+```
 
 ### Step 4 - Start the training job
 
@@ -617,17 +641,21 @@ pulls it into the newly launched EC2 training cluster that the user
 specified in the Estimator object. All of this happens fully-managed
 behind the scenes without further interaction with the user.
 
-    xgb_estimator$fit(inputs = input_data,
-                      job_name = job_name,
-                      wait = FALSE #  If set to TRUE the call will wait until the job completes
-                      )
+``` r
+xgb_estimator$fit(inputs = input_data,
+                  job_name = job_name,
+                  wait = FALSE #  If set to TRUE the call will wait until the job completes
+                  )
+```
 
 We can check via the API when the training job is finished. Once it has
 reached the status **Completed** you can move ahead to the next section.
 
-    session$describe_training_job(job_name)[["TrainingJobStatus"]]
+``` r
+session$describe_training_job(job_name)[["TrainingJobStatus"]]
 
-    ## [1] "Completed"
+## [1] "Completed"
+```
 
 ### Step 5 - Evaluate the training results
 
@@ -641,12 +669,14 @@ validation set among other information.
 
 Below we will only parse and check the final evaluation metrics:
 
-    training_job_stats <- session$describe_training_job(job_name = job_name)
+``` r
+training_job_stats <- session$describe_training_job(job_name = job_name)
 
-    final_metrics <-  map_df(training_job_stats$FinalMetricDataList, 
-                              ~tibble(metric_name = .x[["MetricName"]],
-                                      value = .x[["Value"]]))
-    final_metrics
+final_metrics <-  map_df(training_job_stats$FinalMetricDataList, 
+                          ~tibble(metric_name = .x[["MetricName"]],
+                                  value = .x[["Value"]]))
+final_metrics
+```
 
 The AUC values for the training and the validation set should be &gt;94%
 and &gt;92% respectively. Based on these first findings the model should
@@ -718,15 +748,17 @@ S3 that will be used to generate the batch predictions. When
 instantiating a Transformer from scratch using the constructor we would
 have explicitly specified the ML model name.
 
-    predictions_path = paste0(models_path, "/", job_name, "/predictions")
+``` r
+predictions_path <- paste0(models_path, "/", job_name, "/predictions")
 
-    xgb_batch_predictor = xgb_estimator$transformer(
-      instance_count = 1L, 
-      instance_type = "ml.m5.large", 
-      strategy = "MultiRecord",
-      assemble_with = "Line",
-      output_path = predictions_path
-    )
+xgb_batch_predictor <- xgb_estimator$transformer(
+  instance_count = 1L, 
+  instance_type = "ml.m5.large", 
+  strategy = "MultiRecord",
+  assemble_with = "Line",
+  output_path = predictions_path
+)
+```
 
 ### Step 2 - Start the batch prediction job
 
@@ -748,20 +780,23 @@ Transformer object specifying the following parameters:
     being logged in to the AWS Console.
 
 <!-- -->
-
-    xgb_batch_predictor$transform(
-      data = s3_test, 
-      content_type = 'text/csv',
-      split_type = "Line",
-      job_name = job_name)
+``` r
+xgb_batch_predictor$transform(
+  data = s3_test, 
+  content_type = 'text/csv',
+  split_type = "Line",
+  job_name = job_name)
+```
 
 We can check via the API when the batch prediction job is finished and
 the inference cluster is shut and terminated. Once it has reached the
 status **Completed** you can move ahead to the next section.
 
-    session$describe_transform_job(job_name)[["TransformJobStatus"]]
+``` r
+session$describe_transform_job(job_name)[["TransformJobStatus"]]
 
-    ## [1] "Completed"
+## [1] "Completed"
+```
 
 ### Step 3 - Download the test set predictions
 
@@ -770,51 +805,55 @@ a CSV file locally before reading them into a vector. We store the
 predictions with the actual test set outcomes in a new tibble
 `test_results`.
 
-    s3_downloader <- sagemaker$s3$S3Downloader()
-    s3_test_predictions_path <- s3_downloader$list(predictions_path)
-     
-    dir.create("./predictions")
-    s3_downloader$download( s3_test_predictions_path, "./predictions")
-     
-    test_predictions <- read_csv("./predictions/hotels_test.csv.out",
-                                  col_names = FALSE) %>% 
-       pull(X1)
+``` r
+s3_downloader <- sagemaker$s3$S3Downloader()
+s3_test_predictions_path <- s3_downloader$list(predictions_path)
+ 
+dir.create("./predictions")
+s3_downloader$download( s3_test_predictions_path, "./predictions")
+ 
+test_predictions <- read_csv("./predictions/hotels_test.csv.out",
+                              col_names = FALSE) %>% 
+   pull(X1)
 
-    test_results <- tibble(
-      truth = hotels_test$children,
-      predictions = test_predictions
-    )
+test_results <- tibble(
+  truth = hotels_test$children,
+  predictions = test_predictions
+)
 
-    head(test_results)
+head(test_results)
 
-    ## # A tibble: 6 x 2
-    ##   truth predictions
-    ##   <dbl>       <dbl>
-    ## 1     0     0.0122 
-    ## 2     0     0.0245 
-    ## 3     0     0.00490
-    ## 4     0     0.0379 
-    ## 5     0     0.0490 
-    ## 6     0     0.0156
+## # A tibble: 6 x 2
+##   truth predictions
+##   <dbl>       <dbl>
+## 1     0     0.0122 
+## 2     0     0.0245 
+## 3     0     0.00490
+## 4     0     0.0379 
+## 5     0     0.0490 
+## 6     0     0.0156
+```
 
 ### Step 4 - Evaluate the test set predictions
 
 Let us have a look at the ROC curve and the AUC value of the test data
 set using the `pROC` package:
 
-    roc_obj <- roc(test_results$truth,test_results$predictions,
-                   plot = TRUE,         
-                   grid = TRUE,
-                   print.auc = TRUE,
-                   legacy.axes = TRUE, 
-                   main = "ROC curve for XGBoost classification",
-                   show.thres=TRUE,
-                   col = "red2"
-    )
+``` r
+roc_obj <- roc(test_results$truth,test_results$predictions,
+               plot = TRUE,         
+               grid = TRUE,
+               print.auc = TRUE,
+               legacy.axes = TRUE, 
+               main = "ROC curve for XGBoost classification",
+               show.thres=TRUE,
+               col = "red2"
+)
 
-    ## Setting levels: control = 0, case = 1
+## Setting levels: control = 0, case = 1
 
-    ## Setting direction: controls < cases
+## Setting direction: controls < cases
+```
 
 ![](images/roc_curve.png)
 
@@ -825,41 +864,43 @@ that we did not tune any hyperparameters during the training phase.
 Creating a confusion matrix using the `caret` package we see the
 following results:
 
-    conf_matrix <- confusionMatrix(
-      factor(ifelse(test_results$predictions >= 0.5, 1, 0), levels = c("0", "1"), 
-             labels = c("no children", "children")),
-      factor(test_results$truth, levels = c(0, 1), 
-             labels = c("no children", "children")),
-      positive = "children")
-    conf_matrix
+``` r
+conf_matrix <- confusionMatrix(
+  factor(ifelse(test_results$predictions >= 0.5, 1, 0), levels = c("0", "1"), 
+         labels = c("no children", "children")),
+  factor(test_results$truth, levels = c(0, 1), 
+         labels = c("no children", "children")),
+  positive = "children")
+conf_matrix
 
-    ## Confusion Matrix and Statistics
-    ## 
-    ##              Reference
-    ## Prediction    no children children
-    ##   no children        6839      336
-    ##   children             54      271
-    ##                                           
-    ##                Accuracy : 0.948           
-    ##                  95% CI : (0.9427, 0.9529)
-    ##     No Information Rate : 0.9191          
-    ##     P-Value [Acc > NIR] : < 2.2e-16       
-    ##                                           
-    ##                   Kappa : 0.5565          
-    ##                                           
-    ##  Mcnemar's Test P-Value : < 2.2e-16       
-    ##                                           
-    ##             Sensitivity : 0.44646         
-    ##             Specificity : 0.99217         
-    ##          Pos Pred Value : 0.83385         
-    ##          Neg Pred Value : 0.95317         
-    ##              Prevalence : 0.08093         
-    ##          Detection Rate : 0.03613         
-    ##    Detection Prevalence : 0.04333         
-    ##       Balanced Accuracy : 0.71931         
-    ##                                           
-    ##        'Positive' Class : children        
-    ## 
+## Confusion Matrix and Statistics
+## 
+##              Reference
+## Prediction    no children children
+##   no children        6839      336
+##   children             54      271
+##                                           
+##                Accuracy : 0.948           
+##                  95% CI : (0.9427, 0.9529)
+##     No Information Rate : 0.9191          
+##     P-Value [Acc > NIR] : < 2.2e-16       
+##                                           
+##                   Kappa : 0.5565          
+##                                           
+##  Mcnemar's Test P-Value : < 2.2e-16       
+##                                           
+##             Sensitivity : 0.44646         
+##             Specificity : 0.99217         
+##          Pos Pred Value : 0.83385         
+##          Neg Pred Value : 0.95317         
+##              Prevalence : 0.08093         
+##          Detection Rate : 0.03613         
+##    Detection Prevalence : 0.04333         
+##       Balanced Accuracy : 0.71931         
+##                                           
+##        'Positive' Class : children        
+## 
+```
 
 Even though you should see an accuracy &gt; 94% for the test set
 predictions, the model did not perform that well in identifying the
