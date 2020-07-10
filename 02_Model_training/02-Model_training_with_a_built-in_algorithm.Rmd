@@ -497,9 +497,9 @@ We create a Transformer instance, specifying the following parameters in the con
 **Note**: Because we derive the Transformer object from the Estimator object it automatically has the information of the ML model residing in S3 that will be used to generate the batch predictions. When instantiating a Transformer from scratch using the constructor we would have explicitly specified the ML model name.  
 
 ```{r}
-predictions_path = paste0(models_path, "/", job_name, "/predictions")
+predictions_path <- paste0(models_path, "/", job_name, "/predictions")
 
-xgb_batch_predictor = xgb_estimator$transformer(
+xgb_batch_predictor <- xgb_estimator$transformer(
   instance_count = 1L, 
   instance_type = "ml.m5.large", 
   strategy = "MultiRecord",
