@@ -59,6 +59,10 @@ You have mastered the SageMaker fundamentas and like to learn more on how to lev
 
 * The official SageMaker documentation: [R User Guide to Amazon SageMaker](https://docs.aws.amazon.com/sagemaker/latest/dg/r-guide.html)
 
+Do you know AWS's AI Services and that they allow you to add Deep Learning capabilities quickly to your R & Shiny applications without being a DL expert? The workshop below shows you how to use theses services from R:
+
+* The [AWS AI Services for R users](https://github.com/alex23lemm/AWS-AI-Services-R-Workshop) workshop a fun and short-lived workshop for experienced R users with no prior knowledge of AWS's AI Services, who want to add Deep Learning capabilities like image recognition, text translation or text-to-speech conversion to their R and Shiny applications.
+
 
 ## Disclaimer
 
