@@ -49,7 +49,7 @@ Calling `default_bucket()` on the SageMaker session object returns the name of t
 bucket <- session$default_bucket()
 project <-  "hotels"
 data_path <- paste0(project, "/", "data")
-models_path = paste0("s3://", bucket, "/", project, "/", "models")
+models_path <- paste0("s3://", bucket, "/", project, "/", "models")
 ```
 
 Next, we retrieve the paths to the datasets we uploaded to S3 in the previous module. We need this information later when telling SageMaker where to fetch the data from when starting the hyperparameter tuning job and the inference job.
@@ -342,7 +342,7 @@ We will use Batch Transform which is a SageMaker feature for generating batch in
 
 This time we won't be able to create the Transformer object by calling `transformer()` on the Estimator object as shown for single training jobs in the previous article. Instead we use the Transformer constructor and specify the model we like to use to generate the predictions explicitly using the `model_name` parameter.
 
-For this we need to create a SageMaker model first based on the SageMaker training job by calling `create_from_job()` on the session object. If no model name is specified, the model automatically gets the name of the training job.
+For this we need to create a SageMaker model first based on the SageMaker training job by calling `create_model_from_job()` on the session object. If no model name is specified, the model automatically gets the name of the training job.
 
 ```{r}
 predictions_path <- paste0(models_path, "/", best_tuned_model, "/predictions")

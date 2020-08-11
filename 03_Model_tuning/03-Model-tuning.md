@@ -69,7 +69,7 @@ used earlier.
 bucket <- session$default_bucket()
 project <-  "hotels"
 data_path <- paste0(project, "/", "data")
-models_path = paste0("s3://", bucket, "/", project, "/", "models")
+models_path <- paste0("s3://", bucket, "/", project, "/", "models")
 ```
 
 Next, we retrieve the paths to the datasets we uploaded to S3 in the
@@ -536,7 +536,7 @@ and specify the model we like to use to generate the predictions
 explicitly using the `model_name` parameter.
 
 For this we need to create a SageMaker model first based on the
-SageMaker training job by calling `create_from_job()` on the session
+SageMaker training job by calling `create_model_from_job()` on the session
 object. If no model name is specified, the model automatically gets the
 name of the training job.
 
