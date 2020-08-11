@@ -6,7 +6,11 @@
 
 The **SageMaker Fundamentals for R users** workshop is for experienced R users with no prior Amazon SageMaker knowledge, who want to use their own (local) RStudio installation as an alternative to SageMaker Notebooks to connect to SageMaker to train, tune, evaluate, deploy and monitor machine learning models in the cloud.
 
-We use a single project example throughout the workshop to explain the entire machine learning process end-to-end using SageMaker from a data science practitioner perspective. In addition, workshop attendees gain a solid understanding of the underlying SageMaker fundamentals, such as what happens behind the scenes when a training, tuning job or batch inference job is started. We show R recipes and best practices on how to parse and visualize the responses returned from Amazon SageMaker in the different stages of the machine learning process. 
+We use a single project example throughout the workshop to explain the entire machine learning process end-to-end using SageMaker from a data science practitioner perspective. In addition, workshop attendees gain a solid understanding of the underlying SageMaker fundamentals, such as what happens behind the scenes when a training, tuning job or batch inference job is started. We show R recipes and best practices on how to parse and visualize the responses returned from Amazon SageMaker in the different stages of the machine learning process.
+
+We use the [reticulate package](https://rstudio.github.io/reticulate/) as an R interface to Python to make API calls to SageMaker using the SageMaker Python SDK.  
+
+**Important:** The workshop code is based on the new version 2.x of the SageMaker Python SDK. 
 
  
 ## Workshop modules

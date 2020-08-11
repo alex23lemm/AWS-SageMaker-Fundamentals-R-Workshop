@@ -352,20 +352,21 @@ Now it is time to create our own Estimator instance with specifying the followin
 region <- session$boto_region_name
 
 # get container image location
-container <- sagemaker$amazon$amazon_estimator$get_image_uri(region,
-"xgboost", repo_version = "1.0-1")
+container <- sagemaker$image_uris$retrieve(framework = "xgboost", 
+                                           region = region, 
+                                           version = "1.0-1" )
 
 # get SageMaker execution role stored in .Renviron
 role_arn <- Sys.getenv("SAGEMAKER_ROLE_ARN")
 
 # Create an Estimator object
 xgb_estimator <- sagemaker$estimator$Estimator(
-  image_name = container,
+  image_uri = container,
   role = role_arn,
-  train_instance_count = 1L,
-  train_instance_type = "ml.m5.4xlarge",
-  train_volume_size = 30L,
-  train_max_run = 3600L,
+  instance_count = 1L,
+  instance_type = "ml.m5.4xlarge",
+  volume_size = 30L,
+  max_run = 3600L,
   output_path = models_path,
   sagemaker_session = session
 )
@@ -407,16 +408,13 @@ algo <- "xgboost"
 timestamp <- format(Sys.time(), "%Y-%m-%d-%H-%M-%S")
 job_name <- paste(project, algo, timestamp, sep = "-")
 
-
-s3_train_input <- sagemaker$s3_input(s3_data = s3_train,
+s3_train_input <- sagemaker$inputs$TrainingInput(s3_data = s3_train,
                                      content_type = 'csv')
-s3_valid_input <- sagemaker$s3_input(s3_data = s3_validation,
+s3_valid_input <- sagemaker$inputs$TrainingInput(s3_data = s3_validation,
                                      content_type = 'csv')
 
 input_data <- list('train' = s3_train_input,
                    'validation' = s3_valid_input)
-
-
 ```
 
 ### Step 4 - Start the training job
@@ -427,7 +425,7 @@ Calling `fit()` on our Estimator object will start the training process describe
 ```{r results='hide'}
 xgb_estimator$fit(inputs = input_data,
                   job_name = job_name,
-                  wait = FALSE #  If set to TRUE the call will wait until the job completes
+                  wait = FALSE  # If set to TRUE, the call will wait until the job completes
                   )
 ```
 
@@ -522,7 +520,9 @@ xgb_batch_predictor$transform(
   data = s3_test, 
   content_type = 'text/csv',
   split_type = "Line",
-  job_name = job_name)
+  job_name = job_name,
+  wait = FALSE  # If set to TRUE, the call will wait until the job completes
+)
 ```
 
 We can check via the API when the batch prediction job is finished and the inference cluster is shut and terminated. Once it has reached the status **Completed** you can move ahead to the next section.

@@ -114,7 +114,7 @@ SageMaker executes the following steps automatically once a hyperparameter job i
 Having gained a solid understanding of the underlying fundamentals of SageMaker hyperparameter tuning jobs, we will now configure and start a tuning job ourselves. 
 
 
-### Step 1 - Create an estimator object
+### Step 1 - Create an Estimator object
 
 The first of two essential objects for hyperparameter tuning on SageMaker via the API is an Estimator object.
 
@@ -144,20 +144,21 @@ We create our own Estimator instance, specifying the following parameters in the
 region <- session$boto_region_name
 
 # get container image location
-container <- sagemaker$amazon$amazon_estimator$get_image_uri(region, "xgboost",
-                                                             repo_version = "1.0-1")
+container <- sagemaker$image_uris$retrieve(framework = "xgboost", 
+                                           region = region, 
+                                           version = "1.0-1" )
 
 # get SageMaker execution role stored in .Renviron
 role_arn <- Sys.getenv("SAGEMAKER_ROLE_ARN")
 
 # Create an Estimator object
 xgb_estimator <- sagemaker$estimator$Estimator(
-  image_name = container,
+  image_uri = container,
   role = role_arn,
-  train_instance_count = 1L,
-  train_instance_type = "ml.m5.12xlarge",
-  train_volume_size = 30L,
-  train_max_run = 3600L,
+  instance_count = 1L,
+  instance_type = "ml.m5.12xlarge",
+  volume_size = 30L,
+  max_run = 3600L,
   output_path = models_path,
   sagemaker_session = session
 )
@@ -253,10 +254,9 @@ algo <- "xgb"
 timestamp <- format(Sys.time(), "%Y-%m-%d-%H-%M-%S")
 job_name <- paste(project, algo, timestamp, sep = "-")
 
-
-s3_train_input <- sagemaker$s3_input(s3_data = s3_train,
+s3_train_input <- sagemaker$inputs$TrainingInput(s3_data = s3_train,
                                      content_type = 'csv')
-s3_valid_input <- sagemaker$s3_input(s3_data = s3_validation,
+s3_valid_input <- sagemaker$inputs$TrainingInput(s3_data = s3_validation,
                                      content_type = 'csv')
 
 input_data <- list('train' = s3_train_input,
@@ -270,7 +270,9 @@ Calling `fit()` on our HyperparameterTuner object will start the tuning process 
 
 ```{r}
 tuner$fit(inputs = input_data, 
-          job_name = job_name)
+          job_name = job_name,
+          wait = FALSE # If set to TRUE, the call will wait until the job completes
+          )
 ```
 
 We can check via the API when the training job is finished. Once it has reached the status **Completed** you can move ahead to the next section.
@@ -289,11 +291,9 @@ tuning_results_df <- tuning_job_results$dataframe()
 head(tuning_results_df)[, c(1:4, 6)]
 ```
 
-
 We can also plot a time series chart that shows how our objective metric AUC developed over the course of the 30 training jobs based on the underlying tuning orchestrated by the Bayesian optimizer. In the chart you can see that every time three training jobs were started in parallel
 .
 ```{r fig.align='center'}
-# Tuning diagnostics 
 ggplot(tuning_results_df, aes(TrainingEndTime, FinalObjectiveValue)) +
   geom_point() +
   xlab("Time") +
@@ -368,7 +368,9 @@ xgb_batch_predictor$transform(
   data = s3_test, 
   content_type = 'text/csv',
   split_type = "Line",
-  job_name = best_tuned_model)
+  job_name = best_tuned_model,
+  wait = FALSE  # If set to TRUE, the call will wait until the job completes
+  )
 ```
 
 We can check via the API when the batch prediction job is finished and the inference cluster is shut and terminated. Once it has reached the status **Completed** you can move ahead to the next section.
