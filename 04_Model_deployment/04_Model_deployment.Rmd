@@ -1,0 +1,128 @@
+---
+title: "SageMaker fundamentals for R users - Part 04: Model deployment"
+output: 
+  html_notebook:
+    theme: flatly
+---
+
+
+## Introduction
+
+## Load necessary libraries
+
+```{r message=FALSE, warning=FALSE}
+library(reticulate)    # for calling the SageMaker Python SDK from R
+library(purrr)         # for parsing the SageMaker responses
+library(readr)
+```
+
+
+```{r}
+use_condaenv("sagemaker-r", required = TRUE)
+
+sagemaker <- import("sagemaker")
+session <- sagemaker$Session()
+```
+
+```{r}
+region <- session$boto_region_name
+```
+
+
+```{r}
+
+
+# get container image location
+container <- sagemaker$amazon$amazon_estimator$get_image_uri(region, "xgboost",
+                                                             repo_version = "1.0-1")
+
+# get SageMaker execution role stored in .Renviron
+role_arn <- Sys.getenv("SAGEMAKER_ROLE_ARN")
+
+bucket <- session$default_bucket()
+project <-  "hotels"
+data_path <- paste0(project, "/", "data")
+models_path <- paste0("s3://", bucket, "/", project, "/", "models")
+```
+
+## Model deployment 
+
+### Step 1 - Create a model
+
+Retrieve the model list using boto3. By default, the model list is ordered by descending creation time. 
+
+```{r}
+boto_client <- session$boto_session$client("sagemaker")
+hotels_model_name <- boto_client$list_models()[["Models"]] %>% 
+  map_chr("ModelName") %>% 
+  .[[1]]
+
+```
+
+
+
+### Step 2 - Create endpoint configuration
+
+* `name`:  Name of the Amazon SageMaker endpoint configuration to create.
+* `model_name`: Name of the Amazon SageMaker Model.
+* `initial_instance_count`: Minimum number of EC2 instances to launch. The actual number of active instances for an endpoint at any given time varies due to autoscaling.
+* `instance_type`: Type of EC2 instance to launch
+
+
+```{r}
+config_name <- paste0(hotels_model_name, "-config")
+session$create_endpoint_config(name = config_name,
+                               model_name =  hotels_model_name, 
+                               initial_instance_count = 1L, 
+                               instance_type = "ml.m5.large")
+```
+
+
+* `endpoint_name`: Name of the Amazon SageMaker Endpoint being created.
+* `config_name`: Name of the Amazon SageMaker endpoint configuration to deploy.
+* `wait`: Whether to wait for the endpoint deployment to complete before returning.
+
+
+### Step 3 - Create endpoint
+
+```{r}
+endpoint_name <- "hotels-endpoint"
+session$create_endpoint(endpoint_name = endpoint_name, 
+                        config_name = config_name,
+                        wait = FALSE)
+```
+
+
+```{r}
+boto_client$describe_endpoint(EndpointName = endpoint_name)[["EndpointStatus"]]
+```
+
+## Making real-time predictions against the endpoint
+
+The Amazon SageMaker implementation of XGBoost supports CSV and libsvm formats for inference.
+For CSV inference, the algorithm assumes that CSV input does not have the label column. 
+
+```{r}
+# The MIME type of the data sent to the inference endpoint.
+csv_serializer <- sagemaker$serializers$CSVSerializer()
+csv_serializer$CONTENT_TYPE <- "text/csv"
+
+hotels_predictor <- sagemaker$predictor$Predictor(
+  endpoint_name = "hotels-endpoint", 
+  sagemaker_session = session, 
+  serializer = csv_serializer)
+
+```
+
+```{r}
+test_set <- read_csv("../data/hotels_test.csv", col_names = FALSE)
+
+test_matrix <- test_set %>% 
+  as.matrix()
+
+predictions <- hotels_predictor$predict(data = test_matrix[1:5, ])
+predictions
+```
+
+
+## Summary
