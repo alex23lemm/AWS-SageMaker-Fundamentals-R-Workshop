@@ -5,6 +5,12 @@ output:
     theme: flatly
 ---
 
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(
+  fig.path = "images/"
+)
+```
+
 In this workshop module you will learn how to start a SageMaker training job using the built-in XGBoost algorithm to solve a binary classification problem and how to start a batch inference job to evaluate the final model performance. Along the way we have a closer look at the underlying mechanisms of SageMaker training jobs and SageMaker batch inference jobs.  
 
 To connect to SageMaker from RStudio we will use the conda environment we created in the previous module *Configuring RStudio*.
@@ -560,7 +566,7 @@ head(test_results)
 
 Let us have a look at the ROC curve and the AUC value of the test data set using the `pROC` package:
 
-```{r}
+```{r roc_curve}
 roc_obj <- roc(test_results$truth,test_results$predictions,
                plot = TRUE,         
                grid = TRUE,
