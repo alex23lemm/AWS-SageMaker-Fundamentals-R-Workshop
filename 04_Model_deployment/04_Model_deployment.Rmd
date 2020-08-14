@@ -115,15 +115,12 @@ We can check via the API when the endpoint is successfully deployed and availabl
 boto_client$describe_endpoint(EndpointName = endpoint_name)[["EndpointStatus"]]
 ```
 
-## Making real-time predictions against the endpoint
-
+## Make real-time predictions against the endpoint
 
 > **Info**
 > 
 > SageMaker model endpoints are NOT public web services endpoints. You cannot access 
 > an endpoint unless you are already authenticated via the AWS API. 
-
-
 
 To validate the model, invoke the endpoint with example images from the test dataset and check whether the inferences you get match the actual labels of the images. 
 
@@ -136,27 +133,34 @@ For CSV inference, the algorithm assumes that CSV input does not have the label 
 # The MIME type of the data sent to the inference endpoint.
 csv_serializer <- sagemaker$serializers$CSVSerializer()
 csv_serializer$CONTENT_TYPE <- "text/csv"
+csv_deserializer <- sagemaker$deserializers$CSVDeserializer()
 
 hotels_predictor <- sagemaker$predictor$Predictor(
   endpoint_name = "hotels-endpoint", 
   sagemaker_session = session, 
-  serializer = csv_serializer)
-
+  serializer = csv_serializer,
+  deserializer = csv_deserializer)
 ```
 
-```{r eval=FALSE}
-test_set <- read_csv("../data/hotels_test.csv", col_names = FALSE)
-
-test_matrix <- test_set %>% 
+```{r message=FALSE}
+test_set <- read_csv("../data/hotels_test.csv", col_names = FALSE, n_max = 5) %>% 
   as.matrix()
 
-predictions <- hotels_predictor$predict(data = test_matrix[1:5, ])
-predictions
+real_time_predictions <- hotels_predictor$predict(data = test_set) %>% 
+  .[[1]] %>% 
+  as.numeric()
 ```
 
+```{r message=FALSE}
+batch_predictions <- read_csv("../03_Model_tuning/predictions/hotels_test.csv.out", 
+                              col_names = FALSE, n_max = 5) %>% 
+  .[[1]]
+  
+data.frame(real_time_predictions, batch_predictions)
+```
 
 ## Summary
 
-In this module we explained the underlying mechanisms of the SageMaker model deployment process. You learned how to manage an endpoint life cycle using the Session object from configuring, deploying and deleting a model as an HTTPS endpoint. Moreover, you used a Predictor object to make real-time predictions against the endpoint.
+In this module we explained the underlying mechanisms of the SageMaker model deployment process. You learned how to manage an endpoint life cycle  from configuring, deploying and deleting a model as an HTTPS endpoint using the Session object. Moreover, you used a Predictor object to make real-time predictions against the endpoint.
 
 
