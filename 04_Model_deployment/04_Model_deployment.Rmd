@@ -5,21 +5,42 @@ output:
     theme: flatly
 ---
 
-In the last module *Part 03: Hyperparameter tuning* we learned how to configure and start *a hyperparamter tuning job* using the built-in XGBoost algorithm. We started a tuning job to create 30 different XGBoost models based on the hotels data set. We identified and evaluated the best performing model. 
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(
+  fig.path = "images/",
+  eval = FALSE
+)
+```
+
+
+In the last module *Part 03: Hyperparameter tuning* we learned how to configure and start a hyperparamter tuning job using the built-in XGBoost algorithm. We started a tuning job to create 30 different XGBoost models based on the hotels data set. We identified and evaluated the best performing model. 
 
 In this module we will deploy the best performing model as an HTTPS endpoint and make real-time predictions against it. You will learn the different steps of the SageMaker deployment process for *deploying a single model that is based on a built-in algorithm behind an endpoint*. We won't cover more sophisticated deployment options like endpoints with production variants or multi-model endpoints. Endpoints with production variants allow you to put heterogeneous models, which all serve the same purpose and reside in individual inference containers, behind the same endpoint. Multi-model endpoints allow you to deploy various homogeneous models of the same model type to a single SageMaker inference container which is behind a single endpoint.
 
 
-## Introduction
-
-We assume that you finished all previous workshop modules. In particular, we will deploy the tuned model that you created in the third module and use the test data set, you saved to your local disk in the second module, to make real-time predictions.
-
 ## The SageMaker deplyoment process
 
-The deployment process is quite similar to the Bach Transform process you already used twice for generating batch inferences for the hold-out test set in the pervious two workshop modules. However, unlike Batch Transform a deployment process won't create a short-lived EC2 inference cluster but an inference cluster that is online until the user delibarately decides to shut it down. 
+The SageMaker deployment process is quite similar to a Batch Transform job you already used twice for generating batch inferences for the hold-out test set in the pervious two workshop modules. However, unlike Batch Transform jobs, a deployment process won't create a short-lived EC2 inference cluster but an inference cluster that is online until the user delibarately decides to shut it down. 
+
+SageMaker executes the following steps automatically once a deplyoment job is started using the `create_endpoint()` function via the API:
+
+1. The new long-lived EC2 inference instances come online based on an endpoint configuration that specifies the ML model, the docker container inference image and the inference configuration.
+2. The docker container inference image from the SageMaker built-in algorithm that lives in the Elastic Container Registry (ECR) is pulled into EVERY inference instances. In addition, the model which creates the predictions is transferred from the specified Amazon S3 bucket to EVERY inference instance.
+3. The model endpoint comes live.
 
 
-## Load necessary libraries
+The image below shows the different steps of the deployment process in more detail. In the example we set `InitialInstanceCount = 2`. AWS recommends to use multiple instances for mission critical endpoints. Instances will automatically be deployed to separate Availability Zones. 
+
+![](images/sagemaker_deployment.png)
+
+
+
+## Preparation
+
+We assume that you finished all previous workshop modules. In particular, we will deploy the tuned model that you created in the previous workshop module and use the test data set, you saved to your local disk in the second workshop module, to make real-time test predictions.
+
+
+## Load necessary libraries and activate conda environment 
 
 To use code in this module, you will need to load the following packages:
 
@@ -28,9 +49,6 @@ library(reticulate)    # for calling the SageMaker Python SDK from R
 library(purrr)         # for parsing the SageMaker responses
 library(readr)         # for reading the test set from disk 
 ```
-
-
-## Preparation
 
 We activate the conda environment we prepared and set up in the first module *Part 01: Configuring RStudio* to connect to SageMaker from your RStudio environment. 
 
@@ -41,18 +59,6 @@ use_condaenv("sagemaker-r", required = TRUE)
 
 sagemaker <- import("sagemaker")
 session <- sagemaker$Session()
-```
-
-
-
-
-
-
-
-
-
-```{r}
-region <- session$boto_region_name
 ```
 
 
@@ -91,6 +97,11 @@ hotels_model_name <- boto_client$list_models()[["Models"]] %>%
 
 ### Step 2 - Create endpoint configuration
 
+We will define and save an endpoint configuration which will specify the  
+
+
+pecifies the ML model, the docker container inference image and the inference cluster configuration.
+
 * `name`:  Name of the Amazon SageMaker endpoint configuration to create.
 * `model_name`: Name of the Amazon SageMaker Model.
 * `initial_instance_count`: Minimum number of EC2 instances to launch. The actual number of active instances for an endpoint at any given time varies due to autoscaling.
@@ -126,6 +137,18 @@ boto_client$describe_endpoint(EndpointName = endpoint_name)[["EndpointStatus"]]
 ```
 
 ## Making real-time predictions against the endpoint
+
+
+> **Info**
+> 
+> SageMaker model endpoints are NOT public web services endpoints. You cannot access 
+> an endpoint unless you are already authenticated via the AWS API. 
+
+
+
+To validate the model, invoke the endpoint with example images from the test dataset and check whether the inferences you get match the actual labels of the images. 
+
+The URL does not contain the account ID, but Amazon SageMaker determines the account ID from the authentication token that is supplied by the caller. 
 
 The Amazon SageMaker implementation of XGBoost supports CSV and libsvm formats for inference.
 For CSV inference, the algorithm assumes that CSV input does not have the label column. 
