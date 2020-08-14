@@ -7,27 +7,25 @@ output:
 
 ```{r setup, echo=FALSE}
 knitr::opts_chunk$set(
-  fig.path = "images/",
-  eval = FALSE
+  fig.path = "images/"
 )
 ```
 
 
-In the last module *Part 03: Hyperparameter tuning* we learned how to configure and start a hyperparamter tuning job using the built-in XGBoost algorithm. We started a tuning job to create 30 different XGBoost models based on the hotels data set. We identified and evaluated the best performing model. 
+In the last module *Part 03: Hyperparameter tuning* we learned how to configure and start a hyperparameter tuning job using the built-in XGBoost algorithm. We started a tuning job to create 30 different XGBoost models based on the hotels data set. We identified and evaluated the best performing model. 
 
 In this module we will deploy the best performing model as an HTTPS endpoint and make real-time predictions against it. You will learn the different steps of the SageMaker deployment process for *deploying a single model that is based on a built-in algorithm behind an endpoint*. We won't cover more sophisticated deployment options like endpoints with production variants or multi-model endpoints. Endpoints with production variants allow you to put heterogeneous models, which all serve the same purpose and reside in individual inference containers, behind the same endpoint. Multi-model endpoints allow you to deploy various homogeneous models of the same model type to a single SageMaker inference container which is behind a single endpoint.
 
 
-## The SageMaker deplyoment process
+## The SageMaker deployment process
 
-The SageMaker deployment process is quite similar to a Batch Transform job you already used twice for generating batch inferences for the hold-out test set in the pervious two workshop modules. However, unlike Batch Transform jobs, a deployment process won't create a short-lived EC2 inference cluster but an inference cluster that is online until the user delibarately decides to shut it down. 
+The SageMaker deployment process is quite similar to a Batch Transform job you already used twice for generating batch inferences for the hold-out test set in the previous two workshop modules. However, unlike Batch Transform jobs, a deployment process won't create a short-lived EC2 inference cluster but an inference cluster that is online until the user deliberately decides to shut it down. 
 
-SageMaker executes the following steps automatically once a deplyoment job is started using the `create_endpoint()` function via the API:
+SageMaker executes the following steps automatically once a deployment job is started using the `create_endpoint()` function via the API:
 
 1. The new long-lived EC2 inference instances come online based on an endpoint configuration that specifies the ML model, the docker container inference image and the inference configuration.
 2. The docker container inference image from the SageMaker built-in algorithm that lives in the Elastic Container Registry (ECR) is pulled into EVERY inference instances. In addition, the model which creates the predictions is transferred from the specified Amazon S3 bucket to EVERY inference instance.
-3. The model endpoint comes live.
-
+3. The model endpoint comes live and is ready to serve real-time prediction requests which it passes to one of the inference instances. 
 
 The image below shows the different steps of the deployment process in more detail. In the example we set `InitialInstanceCount = 2`. AWS recommends to use multiple instances for mission critical endpoints. Instances will automatically be deployed to separate Availability Zones. 
 
@@ -64,73 +62,54 @@ session <- sagemaker$Session()
 
 ## Model deployment 
 
-Model deployment is a 3-step process 
-
 > **Info**
 > 
-> An Estimator object specifies the core components for single training jobs that are part of a
-> hyperparameter tuning job:
+> Model deployment is a 3-step process:
 >
-> 1) The type and the number of EC2 instance for the training job.
-> 2) The location of the ML algorithm docker container image in the Elastic Container Registry.
-> 3) The static hyperparameters that won't be tuned during the training job.
-> 4) The learning objective.
-
-Model deployment is a 3 step proc
-
-
-
+> 1) Create a model in SageMaker
+> 2) Create an endpoint configuration for an HTTPS endpoint
+> 3) Create an HTTPS endpoint
 
 ### Step 1 - Create a model
 
-Retrieve the model list using boto3. By default, the model list is ordered by descending creation time. 
+Since we already trained the model, we don't need to do it again here. However, it is important that the model, we like to deploy, is registered with SageMaker. A registered model name is one of the key parameters for defining an endpoint configuration in step 2 below. Luckily, we already registered our desired model in the previous workshop module when we called `create_model_from_job()` on the Session object prior to creating the Transformer object for generating the batch inferences. We only need to fetch the registered model name now. 
+
+Currently, there is not yet a method available in the SageMaker Python SDK for retrieving a list of models that are registered with SageMaker. For this we need use the lower level boto3 client and call `list_models()` on it. Per default, the returned model list is ordered by creation date in descending order. Assuming that the last registered model in your AWS account is the best performing model we trained and registered in the previous module, we go ahead and fetch the top most model name from the list:
 
 ```{r}
 boto_client <- session$boto_session$client("sagemaker")
-hotels_model_name <- boto_client$list_models()[["Models"]] %>% 
+hotels_model <- boto_client$list_models()[["Models"]] %>% 
   map_chr("ModelName") %>% 
   .[[1]]
-
+hotels_model
 ```
-
 
 
 ### Step 2 - Create endpoint configuration
 
-We will define and save an endpoint configuration which will specify the  
+Next, we define and save an endpoint configuration which specifies the ML model we like to use to generate the real-time predictions, the docker container inference image and the inference cluster configuration. We create and save an endpoint configuration in SageMaker by calling `create_endpoint_config()` on the Session object. A created endpoint configuration can be used in various endpoint deployments later. 
 
 
-pecifies the ML model, the docker container inference image and the inference cluster configuration.
-
-* `name`:  Name of the Amazon SageMaker endpoint configuration to create.
-* `model_name`: Name of the Amazon SageMaker Model.
-* `initial_instance_count`: Minimum number of EC2 instances to launch. The actual number of active instances for an endpoint at any given time varies due to autoscaling.
-* `instance_type`: Type of EC2 instance to launch
-
-
-```{r}
-config_name <- paste0(hotels_model_name, "-config")
+```{r results='hide'}
+config_name <- paste0(hotels_model, "-config3")
 session$create_endpoint_config(name = config_name,
-                               model_name =  hotels_model_name, 
+                               model_name =  hotels_model, 
                                initial_instance_count = 1L, 
                                instance_type = "ml.m5.large")
 ```
 
-
-* `endpoint_name`: Name of the Amazon SageMaker Endpoint being created.
-* `config_name`: Name of the Amazon SageMaker endpoint configuration to deploy.
-* `wait`: Whether to wait for the endpoint deployment to complete before returning.
-
-
 ### Step 3 - Create endpoint
 
-```{r}
+Now, it is time to finally deploy our current model champion to production. We do this by calling `create_endpoint()` on the Session object. The major parameters we need to specify are the name of the new endpoint, an endpoint configuration and whether or not to wait for the endpoint deployment to complete before returning to the console. Since endpoint deployment usually takes several minutes, we recommend to set `wait = FALSE`.
+
+```{r results='hide'}
 endpoint_name <- "hotels-endpoint"
 session$create_endpoint(endpoint_name = endpoint_name, 
                         config_name = config_name,
                         wait = FALSE)
 ```
 
+We can check via the API when the endpoint is successfully deployed and available. Once it has reached the status **InService** you can move ahead to the next section.
 
 ```{r}
 boto_client$describe_endpoint(EndpointName = endpoint_name)[["EndpointStatus"]]
@@ -153,7 +132,7 @@ The URL does not contain the account ID, but Amazon SageMaker determines the acc
 The Amazon SageMaker implementation of XGBoost supports CSV and libsvm formats for inference.
 For CSV inference, the algorithm assumes that CSV input does not have the label column. 
 
-```{r}
+```{r eval=FALSE}
 # The MIME type of the data sent to the inference endpoint.
 csv_serializer <- sagemaker$serializers$CSVSerializer()
 csv_serializer$CONTENT_TYPE <- "text/csv"
@@ -165,7 +144,7 @@ hotels_predictor <- sagemaker$predictor$Predictor(
 
 ```
 
-```{r}
+```{r eval=FALSE}
 test_set <- read_csv("../data/hotels_test.csv", col_names = FALSE)
 
 test_matrix <- test_set %>% 
@@ -177,3 +156,7 @@ predictions
 
 
 ## Summary
+
+In this module we explained the underlying mechanisms of the SageMaker model deployment process. You learned how to manage an endpoint life cycle using the Session object from configuring, deploying and deleting a model as an HTTPS endpoint. Moreover, you used a Predictor object to make real-time predictions against the endpoint.
+
+
