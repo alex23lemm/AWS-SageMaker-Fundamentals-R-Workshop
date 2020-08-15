@@ -121,26 +121,42 @@ boto_client$describe_endpoint(EndpointName = endpoint_name)[["EndpointStatus"]]
 > 
 > SageMaker model endpoints are NOT public web services endpoints. You cannot access 
 > an endpoint unless you are already authenticated via the AWS API. 
+>
+> The endpoint URL does not contain the account ID, but SageMaker determines the account
+> ID from the authentication token that is supplied by the caller.
 
-To validate the model, invoke the endpoint with example images from the test dataset and check whether the inferences you get match the actual labels of the images. 
+That means that SageMaker endpoints cannot be accessed from the Internet. For instance, if a third-party Shiny application, that uses the `httr` package in the backend to make API calls, likes to make real-time predictions against your endpoint, it cannot access the endpoint directly.
 
-The URL does not contain the account ID, but Amazon SageMaker determines the account ID from the authentication token that is supplied by the caller. 
+Instead, you need to set up an Amazon API Gateway which serves as an additional security layer that provides an API to clients from the outside. API Gateway can pass the parameter values to the SageMaker endpoint. The model performs the prediction and returns the predicted value back to the API Gateway. API Gateway responds to the client with the predicted value. Setting up an API Gateway is beyond the scope of this workshop. 
 
-The Amazon SageMaker implementation of XGBoost supports CSV and libsvm formats for inference.
-For CSV inference, the algorithm assumes that CSV input does not have the label column. 
+Here, we won't need to set up an API Gateway to test validate the endpoint because we are currently already authenticated via the AWS API and are able to access the endpoint directly. 
+
+To do this, we need to instantiate the following objects:
+
+* a Predictor object that makes prediction requests to the inference endpoint.
+* A Serializer object to encode data for the inference endpoint. 
+* A Deserializer object to decode data from the inference endpoint.
+
+The Amazon SageMaker implementation of XGBoost supports CSV and libsvm formats for (real-time) inference. For inference using CSV data the SageMaker built-in XGBoost algorithm expects that the test set (or any other new data set) comes with no table headers. The CSV data to predict must NOT include the dependent variable. Therefore, we will instantiate a CSV-Serializer and a CSV-Deserializer object below
 
 ```{r eval=FALSE}
-# The MIME type of the data sent to the inference endpoint.
+# Instantiate CSV-Serializer/CSV-Deserializer objects
 csv_serializer <- sagemaker$serializers$CSVSerializer()
 csv_serializer$CONTENT_TYPE <- "text/csv"
 csv_deserializer <- sagemaker$deserializers$CSVDeserializer()
 
+# Instantiate Predictor object
 hotels_predictor <- sagemaker$predictor$Predictor(
   endpoint_name = "hotels-endpoint", 
   sagemaker_session = session, 
   serializer = csv_serializer,
   deserializer = csv_deserializer)
 ```
+
+Now, it is time to make real-time predictions against the hotels endpoint. We will send observations of the test set we saved to disk in the second workshop module *Part 02: Training a model with a built-in algorithm* to the endpoint. When we saved the test set, we made sure to remove the table header and the column of the dependent variable. 
+
+Below we send the first 5 observations all at once to the inference endpoint by calling `predict()` on the Predictor object. SageMaker endpoints support mini-batches for real-time inference requests. 
+
 
 ```{r message=FALSE}
 test_set <- read_csv("../data/hotels_test.csv", col_names = FALSE, n_max = 5) %>% 
@@ -151,6 +167,10 @@ real_time_predictions <- hotels_predictor$predict(data = test_set) %>%
   as.numeric()
 ```
 
+
+Next, we like to check if the endpoint produced the correct predictions. To do this, we compare the real-time prediction results with the Batch Transform predictions of the test set we calculated and saved in the previous workshop module *Part 03: Hyperparameter tuning*.  
+
+
 ```{r message=FALSE}
 batch_predictions <- read_csv("../03_Model_tuning/predictions/hotels_test.csv.out", 
                               col_names = FALSE, n_max = 5) %>% 
@@ -158,6 +178,15 @@ batch_predictions <- read_csv("../03_Model_tuning/predictions/hotels_test.csv.ou
   
 data.frame(real_time_predictions, batch_predictions)
 ```
+
+The prediction results match and we can conclude that the endpoint we deployed works as expected.
+
+Once a real-time inference endpoint reaches the end of its life cycle, you can either delete it via the SageMaker Console or the API which we do next. This also makes sure that the inference instance is not causing any additional costs.
+
+```{r}
+session$delete_endpoint(endpoint_name)
+```
+
 
 ## Summary
 
