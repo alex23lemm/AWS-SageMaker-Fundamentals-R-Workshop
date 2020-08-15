@@ -1,16 +1,4 @@
----
-title: "SageMaker fundamentals for R users - Part 04: Model deployment for real-time predictions"
-output: 
-  html_notebook:
-    theme: flatly
----
-
-```{r setup, echo=FALSE}
-knitr::opts_chunk$set(
-  fig.path = "images/"
-)
-```
-
+# SageMaker fundamentals for R users <br/> Part 04: Model deployment for real-time predictions
 
 In the last module *Part 03: Hyperparameter tuning* we learned how to configure and start a hyperparameter tuning job using the built-in XGBoost algorithm. We started a tuning job to create 30 different XGBoost models based on the hotels data set. We identified and evaluated the best performing model. 
 
@@ -42,7 +30,8 @@ We assume that you finished all previous workshop modules. In particular, we wil
 
 To use code in this module, you will need to load the following packages:
 
-```{r message=FALSE, warning=FALSE}
+
+```r
 library(reticulate)    # for calling the SageMaker Python SDK from R
 library(purrr)         # for parsing the SageMaker responses
 library(readr)         # for reading data from disk 
@@ -52,7 +41,8 @@ We activate the conda environment we prepared and set up in the first module *Pa
 
 We import the SageMaker Python module and create a session object which provides convenient methods not just for training and tuning but also for model deployment.
 
-```{r}
+
+```r
 use_condaenv("sagemaker-r", required = TRUE)
 
 sagemaker <- import("sagemaker")
@@ -76,12 +66,17 @@ Since we already trained the model, we don't need to do it again here. However, 
 
 Currently, there is not yet a method available in the SageMaker Python SDK for retrieving a list of models that are registered with SageMaker. For this we need use the lower level boto3 client and call `list_models()` on it. Per default, the returned model list is ordered by creation date in descending order. Assuming that the last registered model in your AWS account is the best performing model we trained and registered in the previous module, we go ahead and fetch the top most model name from the list:
 
-```{r}
+
+```r
 boto_client <- session$boto_session$client("sagemaker")
 hotels_model <- boto_client$list_models()[["Models"]] %>% 
   map_chr("ModelName") %>% 
   .[[1]]
 hotels_model
+```
+
+```
+## [1] "hotels-xgb-2020-08-11-23-47-46-022-b279ccc9"
 ```
 
 
@@ -90,7 +85,8 @@ hotels_model
 Next, we define and save an endpoint configuration which specifies the ML model we like to use to generate the real-time predictions, the docker container inference image and the inference cluster configuration. We create and save an endpoint configuration in SageMaker by calling `create_endpoint_config()` on the Session object. A created endpoint configuration can be used in various endpoint deployments later. 
 
 
-```{r results='hide'}
+
+```r
 config_name <- paste0(hotels_model, "-config3")
 session$create_endpoint_config(name = config_name,
                                model_name =  hotels_model, 
@@ -102,7 +98,8 @@ session$create_endpoint_config(name = config_name,
 
 Now, it is time to finally deploy our current model champion to production. We do this by calling `create_endpoint()` on the Session object. The major parameters we need to specify are the name of the new endpoint, an endpoint configuration and whether or not to wait for the endpoint deployment to complete before returning to the console. Since endpoint deployment usually takes several minutes, we recommend to set `wait = FALSE`.
 
-```{r results='hide'}
+
+```r
 endpoint_name <- "hotels-endpoint"
 session$create_endpoint(endpoint_name = endpoint_name, 
                         config_name = config_name,
@@ -111,8 +108,13 @@ session$create_endpoint(endpoint_name = endpoint_name,
 
 We can check via the API when the endpoint is successfully deployed and available. Once it has reached the status **InService** you can move ahead to the next section.
 
-```{r}
+
+```r
 boto_client$describe_endpoint(EndpointName = endpoint_name)[["EndpointStatus"]]
+```
+
+```
+## [1] "InService"
 ```
 
 ## Make real-time predictions against the endpoint
@@ -139,7 +141,8 @@ To do this, we need to instantiate the following objects:
 
 The Amazon SageMaker implementation of XGBoost supports CSV and libsvm formats for (real-time) inference. For inference using CSV data the SageMaker built-in XGBoost algorithm expects that the test set (or any other new data set) comes with no table headers. The CSV data to predict must NOT include the dependent variable. Therefore, we will instantiate a CSV-Serializer and a CSV-Deserializer object below
 
-```{r eval=FALSE}
+
+```r
 # Instantiate CSV-Serializer/CSV-Deserializer objects
 csv_serializer <- sagemaker$serializers$CSVSerializer()
 csv_serializer$CONTENT_TYPE <- "text/csv"
@@ -158,7 +161,8 @@ Now, it is time to make real-time predictions against the hotels endpoint. We wi
 Below we send the first 5 observations all at once to the inference endpoint by calling `predict()` on the Predictor object. SageMaker endpoints support mini-batches for real-time inference requests. 
 
 
-```{r message=FALSE}
+
+```r
 test_set <- read_csv("../data/hotels_test.csv", col_names = FALSE, n_max = 5) %>% 
   as.matrix()
 
@@ -171,7 +175,8 @@ real_time_predictions <- hotels_predictor$predict(data = test_set) %>%
 Next, we like to check if the endpoint produced the correct predictions. To do this, we compare the real-time prediction results with the Batch Transform predictions of the test set we calculated and saved in the previous workshop module *Part 03: Hyperparameter tuning*.  
 
 
-```{r message=FALSE}
+
+```r
 batch_predictions <- read_csv("../03_Model_tuning/predictions/hotels_test.csv.out", 
                               col_names = FALSE, n_max = 5) %>% 
   .[[1]]
@@ -179,11 +184,21 @@ batch_predictions <- read_csv("../03_Model_tuning/predictions/hotels_test.csv.ou
 data.frame(real_time_predictions, batch_predictions)
 ```
 
+```
+##   real_time_predictions batch_predictions
+## 1           0.007300874       0.007300874
+## 2           0.017646877       0.017646877
+## 3           0.004776326       0.004776326
+## 4           0.034522254       0.034522254
+## 5           0.031237641       0.031237641
+```
+
 The prediction results match and we can conclude that the endpoint we deployed works as expected.
 
 Once a real-time inference endpoint reaches the end of its life cycle, you can either delete it via the SageMaker Console or the API which we do next. This also makes sure that the inference instance is not causing any additional costs.
 
-```{r}
+
+```r
 session$delete_endpoint(endpoint_name)
 ```
 
