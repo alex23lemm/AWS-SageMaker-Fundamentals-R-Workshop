@@ -72,7 +72,7 @@ session <- sagemaker$Session()
 
 ### Step 1 - Create a model
 
-Since we already trained the model, we don't need to do it again here. However, it is important that the model we like to deploy is registered with SageMaker. A registered model's name is one of the key parameters for defining an endpoint configuration in step 2 below. Luckily, we already registered our desired model in the previous workshop module when we called `create_model_from_job()` on the Session object prior to creating the Transformer object for generating the batch inferences. We only need to fetch the registered model name now. 
+Since we already trained the model, we don't need to do it again here. However, it is important that the model we would like to deploy is registered with SageMaker. A registered model's name is one of the key parameters for defining an endpoint configuration in step 2 below. Luckily, we already registered our desired model in the previous workshop module when we called `create_model_from_job()` on the Session object prior to creating the Transformer object for generating the batch inferences. We only need to fetch the registered model name now. 
 
 Currently, there is not yet a method available in the SageMaker Python SDK to retrieve a list of models that are registered with SageMaker. For this we need use the lower level boto3 client and call `list_models()` on it. By default, the returned model list is ordered by creation date in descending order. Assuming that the last registered model in your AWS account is the best performing model we trained and registered in the previous module, we go ahead and fetch the top most model name from the list:
 
@@ -127,7 +127,7 @@ boto_client$describe_endpoint(EndpointName = endpoint_name)[["EndpointStatus"]]
 
 That means that SageMaker endpoints cannot be accessed from the Internet. For instance, if a third-party Shiny application, that uses the `httr` package in the backend to make API calls, likes to make real-time predictions against your endpoint, it cannot access the endpoint directly.
 
-Instead, you need to set up an Amazon API Gateway, which serves as an additional security layer that provides an API to clients from the outside. API Gateway can pass the parameter values to the SageMaker endpoint. The model performs the prediction and returns the predicted value back to API Gateway. API Gateway responds to the client with the predicted value. Setting up an API with API Gateway is beyond the scope of this workshop. 
+Instead, you need to set up an API in Amazon API Gateway, which serves as an additional security layer that provides access to clients from the outside. API Gateway can pass the parameter values to the SageMaker endpoint. The model performs the prediction and returns the predicted value back to API Gateway. API Gateway responds to the client with the predicted value. Setting up an API with API Gateway is beyond the scope of this workshop. 
 
 Here, we won't need to use API Gateway to test the endpoint because we are already authenticated via the AWS API and are able to access the endpoint directly. 
 
@@ -192,6 +192,6 @@ session$delete_endpoint(endpoint_name)
 
 ## Summary
 
-In this module we explained the underlying mechanisms of the SageMaker model deployment process. You learned how to manage an endpoint life cycle  from configuring, deploying and deleting a model as an HTTPS endpoint using the Session object. You then used a Predictor object to make real-time predictions against the endpoint.
+In this module we explained the underlying mechanisms of the SageMaker model deployment process. You learned how to manage an endpoint life cycle  from configuring, deploying and deleting an HTTPS endpoint for a model using the Session object. You then used a Predictor object to make real-time predictions against the endpoint.
 
 
