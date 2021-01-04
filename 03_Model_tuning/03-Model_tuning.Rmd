@@ -18,7 +18,7 @@ In this module we will continue to use the hotels example project. This time you
 
 ## Introduction
 
-We assume that you finished the first module on training a single model with the built-in XGBoost algorithm and that you you uploaded the pre-processed training, validation and test datasets to S3 having followed the defined path and folder structure. We won't repeat the data exploration steps here but focus on configuring and starting a hyperparameter tuning job based on the preprocessed and uploaded data. 
+We assume that you finished the second module on training a single model with the built-in XGBoost algorithm and that you you uploaded the pre-processed training, validation and test datasets to S3 having followed the defined path and folder structure. We won't repeat the data exploration steps here but focus on configuring and starting a hyperparameter tuning job based on the preprocessed and uploaded data. 
 
 ## Load necessary libraries
 
