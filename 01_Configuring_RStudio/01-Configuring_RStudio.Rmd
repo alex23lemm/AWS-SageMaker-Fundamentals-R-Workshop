@@ -211,12 +211,15 @@ Now that we have the new role's ARN, we will save it as an R environment variabl
 SAGEMAKER_ROLE_ARN = [YOUR_SAGEMAKER_ROLE_ARN]
 ```
 
+Make sure to re-start your R session.
 
 ## Testing your setup
 
 We are finally ready to test our setup! In RStudio select the new conda environment we created earlier:
 
 ```{r}
+library(reticulate)
+
 use_condaenv("sagemaker-r", required = TRUE)
 ```
 

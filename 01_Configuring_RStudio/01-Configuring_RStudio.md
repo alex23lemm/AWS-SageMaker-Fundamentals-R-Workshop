@@ -268,6 +268,8 @@ variable under `.Renivron`. You can easily edit `.Renviron` using
 variable to the file and paste the ARN from your clipboard:
 
     SAGEMAKER_ROLE_ARN = [YOUR_SAGEMAKER_ROLE_ARN]
+    
+Make sure to re-start your R session.
 
 Testing your setup
 ------------------
@@ -276,6 +278,8 @@ We are finally ready to test our setup! In RStudio select the new conda
 environment we created earlier:
 
 ``` r
+library(reticulate)
+
 use_condaenv("sagemaker-r", required = TRUE)
 ```
 
