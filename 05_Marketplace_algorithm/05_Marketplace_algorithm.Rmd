@@ -1,0 +1,257 @@
+---
+title:  "SageMaker fundamentals for R users - Part 04: AutoML with AutoGluon-Tabular"
+output: html_notebook
+---
+
+
+We did not specify separate validation data and so AutoGluon automatically choses a random training/validation split of the data. The data used for validation is seperated from the training data and is used to determine the models and hyperparameter-values that produce the best results
+
+The first line of your CSV file should contain names for each column.
+Columns in your CSV file can be strings/text-fields/Numeric.
+Your data must contain the column that you identify as 'label' in your hyperparameter configuration
+
+For best results: provide all your data to AutoGluon as train_data rather than
+splitting a validation set yourself, specify which eval_metric will be used to
+evaluate predictions.
+
+If you don’t have a strong reason to provide your own validation dataset, we recommend you omit the tuning_data argument. This lets AutoGluon automatically select validation data from your provided training set (it uses smart strategies such as stratified sampling). 
+
+
+
+```{r}
+library(readr)        # for importing the raw data and saving trainig, validation, test sets to disk 
+library(recipes)      # for preprocessing the data
+library(dplyr)        # for preprocessing the data
+library(rsample)      # for splitting the data
+library(reticulate)   # for calling the SageMaker Python SDK from R
+library(purrr)        # primarily for parsing the SageMaker responses
+library(pROC)         # for the evaluation of the final model performance
+library(caret)        # for the evaluation of the final model performance
+```
+
+```{r message=FALSE}
+hotels <- read_csv('https://tidymodels.org/start/case-study/hotels.csv') %>%   
+  mutate_if(is.character, as.factor)
+
+str(hotels)
+```
+
+```{r warning=FALSE}
+holidays <- c("AllSouls", "AshWednesday", "ChristmasEve", "Easter", 
+              "ChristmasDay", "GoodFriday", "NewYearsDay", "PalmSunday")
+
+hotels_rec <- recipe(children ~ ., data = hotels) %>% 
+  step_date(arrival_date, features = c("dow", "month", "year")) %>%
+  step_holiday(arrival_date, holidays = holidays) %>% 
+  step_rm(arrival_date) %>% 
+  step_zv(all_predictors()) %>% 
+  step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE) 
+
+hotels_preprocessed <- prep(hotels_rec, training = hotels) %>% 
+  juice() %>% 
+  mutate(
+   children = if_else(children == "children", 1, 0)
+  ) %>% 
+  select(children, everything())
+
+dim(hotels_preprocessed)
+```
+
+```{r}
+set.seed(42)
+splits  <- initial_split(hotels_preprocessed, prop = 0.7, strata = children)
+hotels_training <- training(splits)
+hotels_other  <- testing(splits)
+
+splits  <- initial_split(hotels_other, prop = 0.5, strata = children)
+rm(hotels_other)
+hotels_validation <- training(splits)
+hotels_test <- testing(splits)
+```
+
+
+```{r message=FALSE}
+dir.create("../data")
+write_csv(bind_rows(hotels_training, hotels_validation), "../data/hotels_training_autogluon.csv")
+
+write_csv(hotels_test, "../data/hotels_test_with_header.csv")
+
+
+```
+
+
+```{r}
+use_condaenv("sagemaker-r", required = TRUE)
+
+sagemaker <- import("sagemaker")
+session <- sagemaker$Session()
+```
+
+
+```{r}
+bucket <- session$default_bucket()
+project <- "hotels"
+data_path <- paste0("s3://", bucket, "/", project, "/", "data")
+models_path <- paste0("s3://", bucket, "/", project, "/", "models")
+```
+
+```{r}
+s3_uploader <- sagemaker$s3$S3Uploader()
+
+s3_train <- s3_uploader$upload(local_path = "../data/hotels_training_autogluon.csv", 
+                               desired_s3_uri = data_path)
+
+s3_test <- s3_uploader$upload(local_path = "../data/hotels_test_with_header.csv", 
+                               desired_s3_uri = data_path)
+```
+
+## Training the machine learning model
+
+### Step 1 - Create an Estimator object
+
+
+```{r}
+region <- session$boto_region_name
+
+# get SageMaker execution role stored in .Renviron
+role_arn <- Sys.getenv("SAGEMAKER_ROLE_ARN")
+
+autogluon_tab_estimator <- sagemaker$AlgorithmEstimator(
+  algorithm_arn = "arn:aws:sagemaker:us-east-1:865070037744:algorithm/autogluon-tabular-v3-4-b164f6c99d3e4ca2b6b56e72df06a4f2", 
+  role = role_arn, 
+  instance_count = 1L, 
+  instance_type = 'ml.m5.4xlarge', 
+  volume_size = 100L,
+  output_path =  models_path, 
+  sagemaker_session = session)
+```
+
+
+
+### Step 2 - Define the static hyperparameters
+
+```{r}
+
+fit_args = list(eval_metric = "roc_auc", label = "children", presets = "best_quality")
+
+autogluon_tab_estimator$set_hyperparameters(
+  fit_args = fit_args, 
+  feature_importance = TRUE
+)
+```
+
+
+### Step 3 - Define the S3 location of the data sets and the training job name
+
+```{r}
+# Create training job name based project organization principles
+algo <- "autogluon-tabular"
+timestamp <- format(Sys.time(), "%Y-%m-%d-%H-%M-%S")
+job_name <- paste(project, algo, timestamp, sep = "-")
+
+s3_input <- sagemaker$inputs$TrainingInput(s3_data = s3_train,
+                                     content_type = 'csv')
+
+
+input_data <- list('training' = s3_input)
+```
+
+
+### Step 4 - Start the training job
+
+```{r}
+autogluon_tab_estimator$fit(inputs = input_data,
+                  job_name = job_name,
+                  wait = FALSE  # If set to TRUE, the call will wait until the job completes
+                  )
+```
+
+
+
+```{r}
+job_name <- "hotels-autogluon-tabular-2021-02-21-22-47-54"
+session$describe_training_job(job_name)[["TrainingJobStatus"]]
+```
+
+### Step 5 - Evaluate the training results
+
+```{r}
+training_job_stats <- session$describe_training_job(job_name = job_name)
+
+final_metrics <-  map_df(training_job_stats$FinalMetricDataList, 
+                          ~tibble(metric_name = .x[["MetricName"]],
+                                  value = .x[["Value"]]))
+final_metrics
+```
+
+
+## Final model evaluation
+
+### Step 1 - Create a Transformer object
+
+Note
+If you subscribe to an algorithm on AWS Marketplace, you must create a model package before you can use it to get inferences by creating hosted endpoint or running a batch transform job.
+
+Consuming SageMaker Model Packages
+SageMaker Model Packages are a way to specify and share information for how to create SageMaker Models. With a SageMaker Model Package that you have created or subscribed to in the AWS Marketplace, you can use the specified serving image and model data for Endpoints and Batch Transform jobs.
+
+To work with a SageMaker Model Package, use the ModelPackage class.
+
+
+https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-mkt-buy.html
+
+```{r}
+predictions_path <- paste0(models_path, "/", job_name, "/predictions")
+
+model_location <- session$describe_training_job(job_name)[["ModelArtifacts"]][["S3ModelArtifacts"]]
+
+session$create_model_package_from_algorithm(name = "autogluon-package3", description = "ag2", algorithm_arn = "arn:aws:sagemaker:us-east-1:865070037744:algorithm/autogluon-tabular-v3-4-b164f6c99d3e4ca2b6b56e72df06a4f2", model_data = model_location )
+
+# How to retrieve the model_package_arn via the SageMaker API?
+
+
+model <- sagemaker$ModelPackage(role = role_arn, model_package_arn = "arn:aws:sagemaker:us-east-1:198562456021:model-package/autogluon-package")
+
+model_2 <- sagemaker$ModelPackage(role = role_arn, model_package_arn = "arn:aws:sagemaker:us-east-1:198562456021:model-package/autogluon-package2")
+```
+
+
+
+```{r}
+# this call creates the model. Convention: model name = model package name + server time stamp
+
+autogluon_batch_predictor <- model_2$transformer(
+  instance_count = 1L, 
+  instance_type = "ml.m5.4xlarge", 
+  strategy = "MultiRecord", 
+  max_payload = 1L, 
+  max_concurrent_transforms = 1L, 
+  output_path = predictions_path)
+```
+
+
+```{r}
+s3_test <- paste0("s3://", bucket, "/", "hotels/data/hotels_test.csv")
+```
+
+
+```{r}
+job_name <- "job2"
+
+# Add job status
+autogluon_batch_predictor$transform(
+  data = s3_test,
+  content_type = "text/csv",
+  split_type = "Line",
+  job_name = job_name,
+  wait = FALSE
+)
+```
+
+```{r}
+session$describe_transform_job(job_name)[["TransformJobStatus"]]
+```
+
+
+
+
