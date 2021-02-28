@@ -18,6 +18,21 @@ If you don’t have a strong reason to provide your own validation dataset, we r
 
 
 
+
+## A quick introduction to AutoGluon-Tabular
+
+
+
+
+
+## Preparation
+
+
+
+
+## Load necessary libraries and activate conda environment
+
+
 ```{r}
 library(readr)        # for importing the raw data and saving trainig, validation, test sets to disk 
 library(recipes)      # for preprocessing the data
@@ -28,6 +43,8 @@ library(purrr)        # primarily for parsing the SageMaker responses
 library(pROC)         # for the evaluation of the final model performance
 library(caret)        # for the evaluation of the final model performance
 ```
+
+
 
 ```{r message=FALSE}
 hotels <- read_csv('https://tidymodels.org/start/case-study/hotels.csv') %>%   
@@ -119,7 +136,7 @@ s3_test <- paste0("s3://", bucket, "/", "hotels/data/hotels_test_with_header_wit
 ```
 
 
-## Training the machine learning model
+## Training the AutoGluon model
 
 ### Step 1 - Create an Estimator object
 
@@ -199,6 +216,11 @@ final_metrics
 ```
 
 
+
+
+
+
+
 ## Final model evaluation
 
 ### Step 1 - Create a Transformer object
@@ -267,6 +289,9 @@ session$describe_transform_job(job_name)[["TransformJobStatus"]]
 
 OPTION 2
 
+
+### Step 1 - Create a Transformer object
+
 ```{r}
 job_name_mod <- paste0(job_name, 4)
 ```
@@ -305,7 +330,7 @@ Call above created model package + model
 model package has link to inference image?
 
 
-
+### Step 2 - Start the batch prediction job
 
 ```{r}
 autogluon_batch_predictor$transform(
@@ -394,3 +419,5 @@ conf_matrix <- confusionMatrix(
 conf_matrix
 ```
 
+
+## Summary
