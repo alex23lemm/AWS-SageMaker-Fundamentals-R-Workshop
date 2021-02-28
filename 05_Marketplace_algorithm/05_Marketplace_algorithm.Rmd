@@ -72,11 +72,12 @@ hotels_test <- testing(splits)
 
 ```{r message=FALSE}
 dir.create("../data")
-write_csv(bind_rows(hotels_training, hotels_validation), "../data/hotels_training_autogluon.csv")
 
-write_csv(hotels_test, "../data/hotels_test_with_header.csv")
+train_combined <- bind_rows(hotels_training, hotels_validation)
+write_csv(train_combined, "../data/hotels_training_autogluon.csv")
 
-
+hotels_test$children <- NULL
+write_csv(hotels_test, "../data/hotels_test_with_header_without_dependent.csv")
 ```
 
 
@@ -101,9 +102,22 @@ s3_uploader <- sagemaker$s3$S3Uploader()
 s3_train <- s3_uploader$upload(local_path = "../data/hotels_training_autogluon.csv", 
                                desired_s3_uri = data_path)
 
-s3_test <- s3_uploader$upload(local_path = "../data/hotels_test_with_header.csv", 
+s3_test <- s3_uploader$upload(local_path = "../data/hotels_test_with_header_without_dependent.csv", 
                                desired_s3_uri = data_path)
 ```
+
+
+```{r}
+data_path <- paste0(project, "/", "data")
+data_s3_location <- session$list_s3_files(bucket, data_path)
+data_s3_location
+```
+
+```{r}
+s3_train <- paste0("s3://", bucket, "/", "hotels/data/hotels_training_autogluon.csv")
+s3_test <- paste0("s3://", bucket, "/", "hotels/data/hotels_test_with_header_without_dependent.csv")
+```
+
 
 ## Training the machine learning model
 
@@ -120,7 +134,7 @@ autogluon_tab_estimator <- sagemaker$AlgorithmEstimator(
   algorithm_arn = "arn:aws:sagemaker:us-east-1:865070037744:algorithm/autogluon-tabular-v3-4-b164f6c99d3e4ca2b6b56e72df06a4f2", 
   role = role_arn, 
   instance_count = 1L, 
-  instance_type = 'ml.m5.4xlarge', 
+  instance_type = 'ml.m5.12xlarge', 
   volume_size = 100L,
   output_path =  models_path, 
   sagemaker_session = session)
@@ -169,7 +183,7 @@ autogluon_tab_estimator$fit(inputs = input_data,
 
 
 ```{r}
-job_name <- "hotels-autogluon-tabular-2021-02-21-22-47-54"
+
 session$describe_training_job(job_name)[["TrainingJobStatus"]]
 ```
 
@@ -199,6 +213,8 @@ To work with a SageMaker Model Package, use the ModelPackage class.
 
 
 https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-mkt-buy.html
+
+OPTION 1
 
 ```{r}
 predictions_path <- paste0(models_path, "/", job_name, "/predictions")
@@ -230,9 +246,6 @@ autogluon_batch_predictor <- model_2$transformer(
 ```
 
 
-```{r}
-s3_test <- paste0("s3://", bucket, "/", "hotels/data/hotels_test.csv")
-```
 
 
 ```{r}
@@ -252,6 +265,132 @@ autogluon_batch_predictor$transform(
 session$describe_transform_job(job_name)[["TransformJobStatus"]]
 ```
 
+OPTION 2
+
+```{r}
+job_name_mod <- paste0(job_name, 4)
+```
+
+```{r}
+env_list <- list(
+  SAGEMAKER_PROGRAM = "inference.py",
+  SAGEMAKER_SUBMIT_DIRECTORY = "/opt/ml/model/code", 
+  SAGEMAKER_CONTAINER_LOG_LEVEL = 20L,
+  SAGEMAKER_REGION = region
+)
+```
 
 
+```{r}
+predictions_path <- paste0(models_path, "/", job_name_mod, "/predictions")
+
+autogluon_batch_predictor <- autogluon_tab_estimator$transformer(
+  instance_count = 1L, 
+  instance_type = "ml.m5.4xlarge", 
+  strategy = "MultiRecord", 
+  env = env_list,
+  #max_payload = 1L, 
+  max_concurrent_transforms = 1L, 
+  output_path = predictions_path
+)
+
+
+
+```
+
+
+Insights:
+Call above created model package + model
+
+model package has link to inference image?
+
+
+
+
+```{r}
+autogluon_batch_predictor$transform(
+  data = s3_test,
+  content_type = "text/csv",
+  split_type = "Line",
+  job_name = job_name_mod,
+  wait = FALSE
+)
+```
+
+
+
+
+
+```{r}
+
+job_name_mod <- "hotels-autogluon-tabular-2021-02-27-21-58-383"
+
+predictions_path <- paste0(models_path, "/", job_name_mod, "/predictions")
+
+
+session$describe_transform_job(job_name_mod)[["TransformJobStatus"]]
+```
+
+
+### Step 3 - Download the test set predictions
+
+
+```{r}
+s3_downloader <- sagemaker$s3$S3Downloader()
+s3_test_predictions_path <- s3_downloader$list(predictions_path)
+ 
+dir.create("./predictions")
+s3_downloader$download(s3_test_predictions_path, "./predictions")
+ 
+test_predictions <- read_csv("./predictions/hotels_test_with_header_without_dependent.csv.out",
+                              col_names = FALSE) %>% 
+   pull(X1)
+```
+
+```{r}
+## Need to think about this code chunk later
+hotels_test <- read_csv("../data/hotels_test_with_dependent_variable.csv")
+```
+
+
+
+
+
+
+```{r}
+test_results <- tibble(
+  truth = hotels_test$children,
+  predictions = test_predictions
+)
+
+head(test_results)
+
+```
+
+### Step 4 - Evaluate the test set predictions
+
+```{r}
+roc_obj <- roc(test_results$truth,test_results$predictions,
+               plot = TRUE,         
+               grid = TRUE,
+               print.auc = TRUE,
+               legacy.axes = TRUE, 
+               main = "ROC curve for XGBoost classification",
+               show.thres=TRUE,
+               col = "red2"
+)
+```
+
+
+
+
+```{r}
+conf_matrix <- confusionMatrix(
+  factor(ifelse(test_results$predictions >= 0.5, 1, 0), levels = c("0", "1"), 
+         labels = c("no children", "children")),
+  factor(test_results$truth, levels = c(0, 1), 
+         labels = c("no children", "children")),
+  positive = "children")
+conf_matrix
+```
 
