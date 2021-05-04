@@ -56,7 +56,7 @@ Each workshop module consists of an R Notobook (.Rmd file) so that users can run
 
 You have mastered the SageMaker fundamentas and like to learn more on how to leverage SageMaker as an R user? Please find below additional resources that will help you on your journey: 
 
-* The [Using R in SageMaker](https://github.com/nickminaie/AWS-SageMaker-R-Workshop) workshop
+* The [Using R in SageMaker](https://github.com/nickminaie/amazon-sagemaker-r-workshop) workshop
   * This workshop can be seen as a follow-up to the *SageMaker Fundamentals for R users* workshop.
   * In the majority of its modules you will use SageMaker Notebooks with an R kernel instead of RStudio to explore the data and to start the various SageMaker jobs.
   * Besides other topics, the workshop will teach you how to bring your own R algorithm to SageMaker, how to connect to an Elastic Map Reduce cluster using the sparklyr package to process Spark (ML) jobs or how to create a persistent custom R environment for SageMaker.
