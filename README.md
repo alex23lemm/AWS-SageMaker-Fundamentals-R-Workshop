@@ -23,7 +23,9 @@ Each workshop module consists of an R Notobook (.Rmd file) so that users can run
 
 3. [Part 03: Hyperparameter tuning](/03_Model_tuning/03-Model_tuning.md): You learn how to use a hyperparameter tuning job instead of a single training job to train various models. The module highlights the key objects involved in tuning jobs in comparison to single training jobs (Estimator objects for single training jobs vs. Estimator & HyperparameterTuning objects for tuning jobs) and describes how the infrastructure for the tuning process works. We use built-in R tools to evaluate the tuning results and use a batch inference job on the test set for the final model evaluation.
 
-3. [Part 04: Model deployment for real-time predictions](/04_Model_deployment/04_Model_deployment.md): You will deploy a model as an HTTPS endpoint and make real-time predictions against it. You will learn the different steps of the SageMaker deployment process for deploying a single model that is based on a built-in algorithm behind an endpoint.
+4. [Part 04: Model deployment for real-time predictions](/04_Model_deployment/04_Model_deployment.md): You will deploy a model as an HTTPS endpoint and make real-time predictions against it. You will learn the different steps of the SageMaker deployment process for deploying a single model that is based on a built-in algorithm behind an endpoint.
+
+5. [Part 05: Using an AWS Marketplace algorithm](/05_Marketplace_alogrithm/05_Marketplace_algorithm.md): Also comes with a training time of one hour.
 
 
 ## Prerequisites 

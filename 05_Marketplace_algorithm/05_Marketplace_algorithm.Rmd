@@ -76,11 +76,12 @@ s3_train <- s3_uploader$upload(local_path = "../data/hotels_training_autogluon.c
 ```{r}
 region <- session$boto_region_name
 
-# get SageMaker execution role stored in .Renviron
+# get SageMaker execution role and AutoGluon ARN stored in .Renviron
 role_arn <- Sys.getenv("SAGEMAKER_ROLE_ARN")
+autogluon_tabular_arn <- Sys.getenv("AUTOGLUON_TABULAR_ARN")
 
 autogluon_tab_estimator <- sagemaker$AlgorithmEstimator(
-  algorithm_arn = "arn:aws:sagemaker:us-east-1:865070037744:algorithm/autogluon-tabular-v3-4-b164f6c99d3e4ca2b6b56e72df06a4f2", 
+  algorithm_arn = autogluon_tabular_arn , 
   role = role_arn, 
   instance_count = 1L, 
   instance_type = 'ml.m5.12xlarge', 
@@ -96,9 +97,12 @@ autogluon_tab_estimator <- sagemaker$AlgorithmEstimator(
 Compared to XGBoost not a lot hyperparameters
 
 ```{r}
-fit_args = list(eval_metric = "roc_auc", label = "children", presets = "best_quality")
+init_args <- list(label = "children", eval_metric = "roc_auc")
+
+fit_args <- list(presets = "best_quality")
 
 autogluon_tab_estimator$set_hyperparameters(
+  init_args = init_args,
   fit_args = fit_args, 
   feature_importance = TRUE
 )
