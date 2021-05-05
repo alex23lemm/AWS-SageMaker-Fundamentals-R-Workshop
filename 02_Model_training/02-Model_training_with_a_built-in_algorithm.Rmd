@@ -194,10 +194,13 @@ write_csv(hotels_test %>% select(-children),
           "../data/hotels_test.csv", col_names = FALSE)
 ```
 
-We also store the test set a second time to disk including the dependent variable. We will use this dataset in the next workshop module but not here. 
+*Note:* We will store the test set to disk again, this time including the dependent variable. We will use this dataset in the third workshop module, [Part 03: Hyperparameter tuning](/03_Model_tuning/03-Model_tuning.md). In addition,  We will store just the table header to CSV. We will use the saved header information in the fifth module, [Part 05: Using an AWS Marketplace algorithm](/05_Marketplace_alogrithm/05_Marketplace_algorithm.md).  
 
 ```{r message=FALSE}
-write_csv(hotels_test, "../data/hotels_test_with_dependent_variable.csv")
+write_csv(hotels_test, "../data/hotels_test_with_dependent_variable.csv") # Used in the third workshop module
+
+table_header <- hotels_training[NULL, ]
+write_csv(table_header, "../data/table_header.csv") # Used in the fifth workshop module
 ```
 
 Before uploading the pre-processed data sets to S3 let us have a quick look on how to best organize your machine learning when using S3 and SageMaker at scale. If you just interested in finishing your first SageMaker project, you can skip the next section and revisit it later. 
