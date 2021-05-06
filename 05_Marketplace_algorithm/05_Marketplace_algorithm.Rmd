@@ -53,6 +53,9 @@ table_header <- read_csv("../data/table_header.csv") %>% names()
 hotels_training  <- read_csv("../data/hotels_training.csv", col_names = table_header)
 hotels_validation <- read_csv("../data/hotels_validation.csv", col_names = table_header)
 
+# The dataset genertion below needs to be added later! 
+hotels_test <- read_csv("../data/hotels_test_with_header.csv")
+
 training_combined <- bind_rows(hotels_training, hotels_validation)
 rm(training_set, validation_set)
 
@@ -64,6 +67,10 @@ write_csv(training_combined, "../data/hotels_training_autogluon.csv")
 s3_uploader <- sagemaker$s3$S3Uploader()
 
 s3_train <- s3_uploader$upload(local_path = "../data/hotels_training_autogluon.csv", 
+                               desired_s3_uri = data_path)
+
+# the code below needs to be updated later!
+s3_test <- s3_uploader$upload(local_path = "../data/hotels_test_with_header_without_dependent.csv", 
                                desired_s3_uri = data_path)
 ```
 
@@ -170,6 +177,11 @@ To work with a SageMaker Model Package, use the ModelPackage class.
 
 https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-mkt-buy.html
 
+
+https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-mkt-model-pkg-model.html
+To use a model package to create a deployable model by using the SageMaker Python SDK, initialize a ModelPackage object, and pass the Amazon Resource Name (ARN) of the model package as the model_package_arn argument. For example:
+
+
 OPTION 1
 
 ```{r}
@@ -177,23 +189,28 @@ predictions_path <- paste0(models_path, "/", job_name, "/predictions")
 
 model_location <- session$describe_training_job(job_name)[["ModelArtifacts"]][["S3ModelArtifacts"]]
 
-session$create_model_package_from_algorithm(name = "autogluon-package3", description = "ag2", algorithm_arn = "arn:aws:sagemaker:us-east-1:865070037744:algorithm/autogluon-tabular-v3-4-b164f6c99d3e4ca2b6b56e72df06a4f2", model_data = model_location )
+#session$create_model_package_from_algorithm(name = "autogluon-package3", description = "ag2", algorithm_arn = "arn:aws:sagemaker:us-east-1:865070037744:algorithm/autogluon-tabular-v3-4-b164f6c99d3e4ca2b6b56e72df06a4f2", model_data = model_location )
 
 session$create_model_package_from_algorithm(
-  name = "late-night-package",
+  name = "may-package-01",
   description = paste0("Model Package created from training with ", Sys.getenv("AUTOGLUON_TABULAR")),
-  algorithm_arn = Sys.getenv("AUTOGLUON_TABULAR"),
+  algorithm_arn = Sys.getenv("AUTOGLUON_TABULAR_ARN"),
   model_data = model_location)
 
+
+
+name <- "may-package-01"
+# Here we need to use the boto3 client to retrieve the model package ARN, which 
+# we need as a parameter when creating the model next. As of the time of writing
+# this code the SageMaker Python SDK does not provide a function to retrieve 
+# a model package ARN
+boto_client <- session$boto_session$client("sagemaker")
+
+model_package_arn <- boto_client$describe_model_package(ModelPackageName = name)[["ModelPackageArn"]]
+
 model <- sagemaker$ModelPackage(role = role_arn, 
-                                model_package_arn = "arn:aws:sagemaker:us-east-1:198562456021:model-package/late-night-package")
+                                model_package_arn = model_package_arn)
 
-# How to retrieve the model_package_arn via the SageMaker API?
-
-
-model <- sagemaker$ModelPackage(role = role_arn, model_package_arn = "arn:aws:sagemaker:us-east-1:198562456021:model-package/autogluon-package")
-
-model_2 <- sagemaker$ModelPackage(role = role_arn, model_package_arn = "arn:aws:sagemaker:us-east-1:198562456021:model-package/autogluon-package2")
 ```
 
 
@@ -225,13 +242,14 @@ autogluon_batch_predictor <- model$transformer(
 
 
 ```{r}
-job_name <- "hotels-autogluon-tabular-2021-02-27-21-58-38"
-job_name <- paste0(job_name, "-latenightfun2")
+#job_name <- "hotels-autogluon-tabular-2021-02-27-21-58-38"
+#job_name <- paste0(job_name, "-latenightfun2")
 
 # Add job status
 autogluon_batch_predictor$transform(
   data = s3_test,
-  content_type = "text/csv",
+  #content_type = "text/csv",
+  content_type = "text/csv;proba",
   split_type = "Line",
   job_name = job_name,
   wait = FALSE
@@ -241,6 +259,11 @@ autogluon_batch_predictor$transform(
 ```{r}
 session$describe_transform_job(job_name)[["TransformJobStatus"]]
 ```
+
+
+
+
+
 
 OPTION 2
 
@@ -312,6 +335,24 @@ session$describe_transform_job(job_name_mod)[["TransformJobStatus"]]
 ```
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ### Step 3 - Download the test set predictions
 
 
@@ -320,7 +361,7 @@ s3_downloader <- sagemaker$s3$S3Downloader()
 s3_test_predictions_path <- s3_downloader$list(predictions_path)
  
 dir.create("./predictions")
-s3_downloader$download(s3_test_predictions_path, "./predictions")
+s3_downloader$download(predictions_path, "./predictions")
  
 test_predictions <- read_csv("./predictions/hotels_test_with_header_without_dependent.csv.out",
                               col_names = FALSE) %>% 
