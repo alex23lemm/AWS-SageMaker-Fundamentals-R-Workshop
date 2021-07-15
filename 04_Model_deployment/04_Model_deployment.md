@@ -145,7 +145,6 @@ The Amazon SageMaker implementation of XGBoost supports CSV and libsvm formats f
 ```r
 # Instantiate CSV-Serializer/CSV-Deserializer objects
 csv_serializer <- sagemaker$serializers$CSVSerializer()
-csv_serializer$CONTENT_TYPE <- "text/csv"
 csv_deserializer <- sagemaker$deserializers$CSVDeserializer()
 
 # Instantiate Predictor object
