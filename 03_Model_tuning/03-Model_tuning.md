@@ -137,7 +137,7 @@ The first of two essential objects for hyperparameter tuning on SageMaker via th
 
 We create our own Estimator instance, specifying the following parameters in the constructor:
 
-* `image_name`: The location of the SageMaker built-in XGBoost algorithm docker container image in the Elastic Container Registry (ECR). We will use XGBoost version 1.0-1.
+* `image_name`: The location of the SageMaker built-in XGBoost algorithm docker container image in the Elastic Container Registry (ECR). We will use XGBoost version 1.3-1.
 * `role`: The AWS Identity and Access Management (IAM) role that SageMaker can assume to perform tasks on your behalf like, e.g.,  fetching data from Amazon S3 buckets and writing the trained model artifacts back to Amazon S3. This is the role we set up and whose Amazon Resource Name (ARN) we stored as a R environment variable in the *Part 01: Configuring RStudio* module. 
 * `train_instance_count` and `train_instance_type`: The type and number of EC2 instances that together represent a training instance of our training cluster to execute a SINGLE training job. We use two ml.m5.4xlarge instances.
 * `train_volume_size`: The size, in GB, of the Amazon Elastic Block Store (Amazon EBS) storage volume to attach to the training instance. It is recommended that you have enough total memory in the selected EC2 instances to hold the training data.
@@ -152,7 +152,7 @@ region <- session$boto_region_name
 # get container image location
 container <- sagemaker$image_uris$retrieve(framework = "xgboost", 
                                            region = region, 
-                                           version = "1.0-1" )
+                                           version = "1.3-1" )
 
 # get SageMaker execution role stored in .Renviron
 role_arn <- Sys.getenv("SAGEMAKER_ROLE_ARN")
@@ -162,7 +162,7 @@ xgb_estimator <- sagemaker$estimator$Estimator(
   image_uri = container,
   role = role_arn,
   instance_count = 1L,
-  instance_type = "ml.m5.12xlarge",
+  instance_type = "ml.m5.4xlarge",
   volume_size = 30L,
   max_run = 3600L,
   output_path = models_path,
