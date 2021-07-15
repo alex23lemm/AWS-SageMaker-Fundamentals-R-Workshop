@@ -245,7 +245,7 @@ Now, we will store our pre-processed training, test and validation data sets to 
 > (or any other new data set) comes with no table headers. The CSV data to predict must NOT include 
 > the dependent variable.
 
-We follow this standard when storing the data sets in CSV format next. If you remember we already made sure to move the dependent variable `chidren` to the first column when preprocessing the data. 
+We follow this standard when storing the data sets in CSV format next. If you remember we already made sure to move the dependent variable `children` to the first column when preprocessing the data. 
 
 
 
@@ -414,7 +414,7 @@ Central for training on SageMaker via the API is the Estimator class that repres
 
 Now it is time to create our own Estimator instance with specifying the following parameters in the constructor:
 
-* `image_name`: The location of the SageMaker built-in XGBoost algorithm docker container image in the Elastic Container Registry (ECR). We will use XGBoost version 1.0-1.
+* `image_name`: The location of the SageMaker built-in XGBoost algorithm docker container image in the Elastic Container Registry (ECR). We will use XGBoost version 1.3-1.
 * `role`: The AWS Identity and Access Management (IAM) role that SageMaker can assume to perform tasks on your behalf like, e.g.,  fetching data from Amazon S3 buckets and writing the trained model artifacts back to Amazon S3. This is the role we set up and whose Amazon Resource Name (ARN) we stored as a R environment variable in the previous *SageMaker fundamentals for R users - Installing the prerequisites* article. 
 * `train_instance_count` and `train_instance_type`: The type and number of EC2 instances for our training cluster. For our training job we will use a single ml.m5.4xlarge instance. Amazon SageMaker XGBoost currently only trains using CPUs. It is a memory-bound (as opposed to compute-bound) algorithm. So, a general-purpose compute instance like M5 we chose is a better choice than a compute-optimized instance (for example, C4)
 * `train_volume_size`: The size, in GB, of the Amazon Elastic Block Store (Amazon EBS) storage volume to attach to the training instance. It is recommended that you have enough total memory in the selected EC2 instances to hold the training data.
@@ -428,7 +428,7 @@ region <- session$boto_region_name
 # get container image location
 container <- sagemaker$image_uris$retrieve(framework = "xgboost", 
                                            region = region, 
-                                           version = "1.0-1" )
+                                           version = "1.3-1" )
 
 # get SageMaker execution role stored in .Renviron
 role_arn <- Sys.getenv("SAGEMAKER_ROLE_ARN")
@@ -591,7 +591,7 @@ predictions_path <- paste0(models_path, "/", job_name, "/predictions")
 
 xgb_batch_predictor <- xgb_estimator$transformer(
   instance_count = 1L, 
-  instance_type = "ml.m5.large", 
+  instance_type = "ml.m5.xlarge", 
   strategy = "MultiRecord",
   assemble_with = "Line",
   output_path = predictions_path
