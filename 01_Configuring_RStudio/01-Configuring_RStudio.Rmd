@@ -42,19 +42,18 @@ library(reticulate)
 conda_create("sagemaker-r")
 ```
 
-If you installed everything from scratch so far, you should now see three listed conda environments: `r-miniconda` which came with the miniconda installation, `r-reticluate` which is the standard environment used by the `reticulate` package, and `sagemaker-r` which we just created:
+If you installed everything from scratch so far, you should now see two listed conda environments: `r-reticluate`, which is the standard environment used by the `reticulate` package, and `sagemaker-r`, which we just created:
 
 ```{r}
 conda_list()
 ```
 
 
-Now, we will install the necessary Python packages in our new environment. We only install pandas in our environment to avoid getting a warning message every time we import the Amazon SageMaker Python module in our R scripts. Otherwise we won't need/use pandas.  
+Now, we will install the necessary Python packages in our new environment: 
 
 ```{r message=FALSE, results='hide'}
 conda_install("sagemaker-r", "boto3", pip = TRUE)
 conda_install("sagemaker-r", "sagemaker", pip = TRUE)
-conda_install("sagemaker-r", "pandas")
 ```
 
 
@@ -64,7 +63,6 @@ conda_install("sagemaker-r", "pandas")
 * Activate the environment you just created via `conda activate sagemaker-r`.
 * Install `boto3` by executing `pip install boto3`.
 * Install `sagemaker` by executing `pip install sagemaker`.
-* Install `pandas` by executing `conda install pandas`.
 * Close Anaconda Prompt.
 
 
